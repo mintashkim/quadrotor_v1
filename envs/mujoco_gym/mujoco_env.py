@@ -264,9 +264,6 @@ class MujocoEnv(BaseMujocoEnv):
 
         mujoco.mj_step(self.model, self.data, nstep=n_frames)
 
-        # As of MuJoCo 2.0, force-related quantities like cacc are not computed
-        # unless there's a force sensor in the model.
-        # See https://github.com/openai/gym/issues/1541
         mujoco.mj_rnePostConstraint(self.model, self.data)
 
     def render(self):

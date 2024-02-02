@@ -96,7 +96,28 @@ class FlappyEnv(gym.Env):
         self._seed()
         self.reset()
 
+        # MujocoEnv
         utils.EzPickle.__init__(self, xml_file, frame_skip, reset_noise_scale, **kwargs)
+        MujocoEnv.__init__(
+            self,
+            xml_file,
+            frame_skip,
+            observation_space=self.observation_space,
+            default_camera_config=default_camera_config,
+            **kwargs,
+        )
+        self.metadata = {
+            "render_modes": [
+                "human",
+                "rgb_array",
+                "depth_array",
+            ],
+            "render_fps": int(np.round(1.0 / self.dt)),
+        }
+        self.observation_structure = {
+            "qpos": self.data.qpos.size,
+            "qvel": self.data.qvel.size,
+        }
 
     def _init_action_filter(self):
         self.action_filter = ActionFilterButter(
@@ -120,12 +141,24 @@ class FlappyEnv(gym.Env):
         # self._set_dynamics_properties()
         self._update_data(step=False)
         return self._get_obs(step=False)
+    
+    def reset_model(self):
+        noise_low = -self._reset_noise_scale
+        noise_high = self._reset_noise_scale
+
+        qpos = self.init_qpos + self.np_random.uniform(
+            size=self.model.nq, low=noise_low, high=noise_high
+        )
+        qvel = self.init_qvel + self.np_random.uniform(
+            size=self.model.nv, low=noise_low, high=noise_high
+        )
+        self.set_state(qpos, qvel)
+        return self._get_obs()
 
     def _init_env_randomizer(self):
         self.env_randomizer = EnvRandomizer(self.sim)
 
     def _set_dynamics_properties(self):
-        # set sim env
         if self.randomize_dynamics:
             self.sim.set_dynamics()
 
@@ -170,23 +203,18 @@ class FlappyEnv(gym.Env):
             # u_to_apply = action_in_SI*self._acs_alpha + self.last_acs*(1-self._acs_alpha)
         else:
             action_filtered = np.copy(action)
-        # simuate the system
-        #tik = time.time()
+
         for i in range(self.num_sims_per_env_step):
-            self.sim.step(action_filtered) # NOTE: sim freq
-        #tok = time.time()
-        #print('step time:', tok-tik)
+            self.sim.step(action_filtered)
 
-        # update self data
         self._update_data(step=True)
+        self.last_act = action
         obs_vf, obs_pol = self._get_obs(action=action, step=True)
-
-        # compute reward-function
         reward, reward_dict = self._get_reward(action)
         self.info["reward_dict"] = reward_dict
         terminated = self._terminated()
         truncated = False
-        self.last_act = action
+        
 
         return obs_vf, reward, terminated, truncated, self.info
 
@@ -247,7 +275,6 @@ class FlappyEnv(gym.Env):
         return total_reward, reward_dict
 
     def _terminated(self):
-
         pos_ub = np.array([20., 20., 20.])
         pos_lb = np.array([-20., -20., 0])
 

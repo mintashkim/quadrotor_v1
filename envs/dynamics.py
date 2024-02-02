@@ -51,10 +51,10 @@ class Flappy():
         return velocity
 
     def get_orientation(self):      
-        R_body = (self.xd[13:22].reshape(3, 3)).T  # body to inertial
+        R_body = (self.xd[13:22].reshape(3,3)).T # body to inertial
         pitch = np.arcsin(np.clip(-R_body.T[0,2],-1,1))
         yaw = np.arctan2(R_body.T[0,1], R_body.T[0,0])
-        roll = np.arctan2(R_body.T[1, 2], R_body.T[2, 2])
+        roll = np.arctan2(R_body.T[1, 2], R_body.T[2,2])
         orientation = np.array([pitch, yaw, roll])
         return orientation
 
