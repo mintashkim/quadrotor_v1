@@ -1,6 +1,7 @@
 # Helpers
 import os
 import sys
+sys.path.append('/Users/mintaekim/Desktop/Hybrid Robotics Lab/Flappy/Integrated/Flappy_Integrated/flappy_v2')
 sys.path.append('/Users/mintaekim/Desktop/Hybrid Robotics Lab/Flappy/Integrated/Flappy_Integrated/flappy_v2/envs')
 import numpy as np
 from typing import Dict, Union
@@ -27,9 +28,9 @@ from rotation_transformations import *
 DEFAULT_CAMERA_CONFIG = {"trackbodyid": 0, "distance": 5.0,}
 TRAJECTORY_TYPES = {"linear": 0, "circular": 1, "setpoint": 2}
 
-class FlappyEnv(gym.Env):
-    metadata = {"render.modes": ["human", "rgb_array"], "video.frames_per_second": 30}
-
+class FlappyEnv(MujocoEnv, utils.EzPickle):
+    metadata = {"render_modes": ["human", "rgb_array", "depth_array"]}
+    
     def __init__(
         self,
         max_timesteps = 3000,
@@ -39,7 +40,7 @@ class FlappyEnv(gym.Env):
         lpf_action    = False,
         traj_type     = False,
         # MujocoEnv
-        xml_file: str = "Flappy_v6.xml",
+        xml_file: str = "../assets/Flappy_v6.xml",
         frame_skip: int = 2,
         default_camera_config: Dict[str, Union[float, int]] = DEFAULT_CAMERA_CONFIG,
         reset_noise_scale: float = 0.01,
@@ -53,7 +54,7 @@ class FlappyEnv(gym.Env):
         self.max_timesteps         = max_timesteps
         self.timestep              = 0.0
         self.sim_freq              = self.sim.freq # 2000Hz
-        self.dt                    = 1.0 / self.sim_freq # 1/2000
+        # self.dt                    = 1.0 / self.sim_freq # 1/2000
         self.policy_freq           = 30 # 30Hz but the real control frequency is not exactly 30Hz because we round up the num_sims_per_env_step
         self.num_sims_per_env_step = self.sim_freq // self.policy_freq
         self.secs_per_env_step     = self.num_sims_per_env_step / self.sim_freq
@@ -72,7 +73,7 @@ class FlappyEnv(gym.Env):
         self.n_action           = 7  # NOTE: change to the number of action
         self.history_len_short  = 4
         self.history_len_long   = 10
-        self.history_len        = 4
+        self.history_len        = self.history_len_short
         self.previous_obs       = deque(maxlen=self.history_len)
         self.previous_act       = deque(maxlen=self.history_len)
         
@@ -271,9 +272,9 @@ class FlappyEnv(gym.Env):
         desired_pos = np.array([0.0, 0.0, 2.0]).reshape(3,1) # x y z 
         desired_vel = np.array([0.0, 0.0, 0.0]).reshape(3,1) # vx vy vz
         desired_ori = np.array([0.0, 0.0, 0.0]).reshape(3,1) # roll, pitch, yaw
-        current_pos = self.sim.get_position()
-        current_vel = self.sim.get_velocity()
-        current_att = self.sim.get_orientation() # euler_mes
+        current_pos = self.data.qpos
+        current_vel = self.data.qvel
+        current_att = quat2euler_raw(self.data.qpos[3:7]) # euler_mes
         
         pos_err = np.linalg.norm(current_pos - desired_pos) 
         r_pos = np.exp(-scale_pos * pos_err)
@@ -400,3 +401,10 @@ class FlappyEnv(gym.Env):
 
     def close(self):
         return
+    
+if __name__ == "__main__":
+    env = FlappyEnv(render_mode="human")
+    for _ in range(10):
+        action = env.action_space.sample()
+        print(action)
+    print(env.model.actuator_ctrlrange)
