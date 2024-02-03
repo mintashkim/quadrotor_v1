@@ -7,8 +7,9 @@ from symbolic_functions.func_wing_tail import *
 from func_create_wing_segment import func_create_wing_segment
 from parameter import Simulation_Parameter
 from utility_functions import *
-#from utility_functions.R_body import R_body_f
-#from utility_functions.rotation_transformations import *
+
+
+p = Simulation_Parameter()
 
 @jit(nopython=True,fastmath=True)
 def lift_coeff(a, params):
@@ -18,42 +19,13 @@ def lift_coeff(a, params):
 def drag_coeff(a, params):
     return params[0] + params[1] * np.cos(np.deg2rad(params[2] * np.rad2deg(a) + params[3]))
 
-def original_states(model, data):
-    #takes mujoco states vectors and converts to MATLAB states vectors defined in func_eom
-    qvel = data.qvel
-    qpos = data.qpos
-    N = len(qpos)
-
-    xd = np.array([0.0]*22)
-    xd[0] = qpos[posID_dic["L5"]]
-    xd[1] = qpos[posID_dic["L6"]]
-    if N == 21:
-        xd[2:5] = list(qpos[0:3])
-    else:
-        xd[2:5] = [0,0,0.5]
-
-    xd[5] = qvel[jvelID_dic["L5"]]
-    xd[6] = qvel[jvelID_dic["L6"]]
-    
-    if N==21:
-        xd[7:10] = list(qvel[0:3])
-        xd[10:13] = list(qvel[3:6])
-    else:
-        xd[7:10] = [0,0,0]
-        xd[10:13] = [0,0,0]
-
-    R_B= R_body(model,data)
-    xd[13:23] = list(np.transpose(R_B).flatten())
-    return xd, R_B
-
-def aero(model, data, xa):
-    xd, R_body = original_states(model, data)
+def aero(model, data, xa, xd, R_body):
 
     # initialize output
     xa = xa.T
     fa = np.zeros_like(xa)  # output dxa/dt
     ua = 0  # sum of generalized aerodynamics forces
-    xa_m = xa.reshape(3,p.nWagner).T  # reshape xa for easy access
+    xa_m = xa.reshape(3,p.n_Wagner).T  # reshape xa for easy access
 
     # --------------------------------------------------------------------------
     # calculate blade element inertial position, velocities,
@@ -124,18 +96,18 @@ def aero(model, data, xa):
     #------------------------------------------------------------------------
 
     # Calculate An
-    An = np.zeros((p.nWagner, p.nWagner))
-    n = np.arange(1, p.nWagner+1)
-    # sin_n_strip_theta = np.sin(np.outer(np.arange(1, nWagner + 1), strip_theta))
-    for i in range(p.nWagner):
+    An = np.zeros((p.n_Wagner, p.n_Wagner))
+    n = np.arange(1, p.n_Wagner+1)
+    # sin_n_strip_theta = np.sin(np.outer(np.arange(1, n_Wagner + 1), strip_theta))
+    for i in range(p.n_Wagner):
         An[i, :] = p.a0 * p.c0 / U[i] * np.sin(n * strip_theta[i])
         # An[i, :] = a0 * c0 / U[i] * sin_n_strip_theta[i]
 
     # Calculate bn
     an = xa_m[:, 0]
-    bn = np.zeros((p.nWagner,1))
-    fa_m = np.zeros((p.nWagner,3))
-    for i in range(p.nWagner):
+    bn = np.zeros((p.n_Wagner,1))
+    fa_m = np.zeros((p.n_Wagner,3))
+    for i in range(p.n_Wagner):
         # aero states and effective air speed
         z1 = xa_m[i, 1]
         z2 = xa_m[i, 2]
@@ -183,7 +155,7 @@ def aero(model, data, xa):
             Rw = np.eye(3)
 
         # lift coefficient (wagner for the wing, if enabled)
-        if i < p.nWagner:
+        if i < p.n_Wagner:
             #Gamma = 0.5 * a0 * c0 * U[i] * np.sin(strip_theta[i]) * an
             C_lift = -p.a0 * np.dot(np.sin(n*strip_theta[i]),(an + np.dot(strip_c[i] / U[i],fa_m[:, 0])))
         else:
@@ -205,4 +177,4 @@ def aero(model, data, xa):
         ua += np.dot(Ba_s[:, :, i], f_aero) #shape (1,8) for d2(theta5, theta6, x, y, z,roll,pitch,yaw)/dt2
  
     # Dynamics EOM, Md*accel + hd = ua + Jc'*lambda
-    return fa, ua
+    return fa, ua, xd

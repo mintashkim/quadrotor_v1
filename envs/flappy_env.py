@@ -23,6 +23,7 @@ from env_randomize import EnvRandomizer
 from utility_functions import *
 import utility_trajectory as ut
 from rotation_transformations import *
+from R_body import R_body
 
 
 DEFAULT_CAMERA_CONFIG = {"trackbodyid": 0, "distance": 5.0,}
@@ -78,9 +79,9 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         self.previous_act       = deque(maxlen=self.history_len)
         
         self.action_space = Box(low=-100, high=100, shape=(self.n_action,))
-        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(41,)) # NOTE: change to the actual number of obs to actor policy
-        self.observation_space_policy = Box(low=-np.inf, high=np.inf, shape=(41,)) # NOTE: change to the actual number of obs to actor policy
-        self.observation_space_value_func = Box(low=-np.inf, high=np.inf, shape=(41,)) # NOTE: change to the actual number of obs to the value function
+        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(454,)) # NOTE: change to the actual number of obs to actor policy
+        self.observation_space_policy = Box(low=-np.inf, high=np.inf, shape=(454,)) # NOTE: change to the actual number of obs to actor policy
+        self.observation_space_value_func = Box(low=-np.inf, high=np.inf, shape=(454,)) # NOTE: change to the actual number of obs to the value function
         
         # NOTE: the low & high does not actually limit the actions output from MLP network, manually clip instead
         self.pos_lb = np.array([-np.inf, -np.inf, 0])  # fight space dimensions: xyz
@@ -88,8 +89,8 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         self.vel_lb = np.array([-2, -2, -2])
         self.vel_ub = np.array([2, 2, 2])
 
-        self.action_lower_bounds = np.array([8,1,0.1,2,0.1,0.1,2,2,0.15])
-        self.action_upper_bounds = np.array([8.5,1.5,0.2,2.5,0.2,0.2,2.5,2.5,0.2])
+        self.action_lower_bounds = np.array([-30,0,0,0,0,0,0])
+        self.action_upper_bounds = np.array([0,2,2,2,2,0.5,0.5])
         
         # Info for normalizing the state
         self._init_action_filter()
@@ -116,6 +117,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
             "qpos": self.data.qpos.size,
             "qvel": self.data.qvel.size,
         }
+        self.xa = np.zeros(3 * self.p.n_Wagner)
 
     def _init_action_filter(self):
         self.action_filter = ActionFilterButter(
@@ -229,17 +231,46 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
 
     def _step_mujoco_simulation(self, ctrl, n_frames):
         self.data.ctrl[:] = ctrl
-        
-        fa, ua = aero(self.model, self.data, xa)
+        self.data.ctrl[0] = -29.8451302
+        self.xd, R_body = self._get_original_states()
+        fa, ua, self.xd = aero(self.model, self.data, self.xa, self.xd, R_body)
         # Apply Aero forces
         self.data.qfrc_applied[self.jvelID_dic["L5"]] = ua[0]
         self.data.qfrc_applied[self.jvelID_dic["L6"]] = ua[1]
         self.data.qfrc_applied[0:6] = ua[2:8]
         # Integrate Aero States
-        xa = xa + fa * self.dt # 1 step
+        self.xa = self.xa + fa * self.dt # 1 step
 
         mj.mj_step(self.model, self.data, nstep=n_frames)
         mj.mj_rnePostConstraint(self.model, self.data)
+
+    def _get_original_states(self):
+        #takes mujoco states vectors and converts to MATLAB states vectors defined in func_eom
+        qvel = self.data.qvel
+        qpos = self.data.qpos
+        N = len(qpos)
+
+        xd = np.array([0.0]*22)
+        xd[0] = qpos[self.posID_dic["L5"]]
+        xd[1] = qpos[self.posID_dic["L6"]]
+        if N == 21:
+            xd[2:5] = list(qpos[0:3])
+        else:
+            xd[2:5] = [0,0,0.5]
+
+        xd[5] = qvel[self.jvelID_dic["L5"]]
+        xd[6] = qvel[self.jvelID_dic["L6"]]
+        
+        if N==21:
+            xd[7:10] = list(qvel[0:3])
+            xd[10:13] = list(qvel[3:6])
+        else:
+            xd[7:10] = [0,0,0]
+            xd[10:13] = [0,0,0]
+
+        R_B = R_body(self.model, self.data)
+        xd[13:23] = list(np.transpose(R_B).flatten())
+        return xd, R_B
 
     def _update_data(self, step=True):
         # NOTE: modify obs states, ground truth states 
@@ -404,7 +435,8 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
     
 if __name__ == "__main__":
     env = FlappyEnv(render_mode="human")
-    for _ in range(10):
-        action = env.action_space.sample()
-        print(action)
-    print(env.model.actuator_ctrlrange)
+    print("Environment created")
+    action = env.action_space.sample()
+    print("Sample action: {}".format(action))
+    print("Control range: {}".format(env.model.actuator_ctrlrange))
+    print("Time step (dt): {}".format(env.dt))

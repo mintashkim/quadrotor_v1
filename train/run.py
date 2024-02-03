@@ -1,6 +1,6 @@
 import os
 import sys
-sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
+sys.path.append('/Users/mintaekim/Desktop/Hybrid Robotics Lab/Flappy/Integrated/Flappy_Integrated/flappy_v2')
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
@@ -9,8 +9,8 @@ from envs.flappy_env import FlappyEnv
 
 
 log_path = os.path.join('logs')
-_env = FlappyEnv()
-env = DummyVecEnv([lambda: _env])
+env = FlappyEnv(render_mode="human")
+# env = DummyVecEnv([lambda: env])
 
 save_path = os.path.join('train', 'saved_models')
 stop_callback = StopTrainingOnRewardThreshold(reward_threshold=100, verbose=1)
@@ -24,7 +24,7 @@ net_arch = {'pi': [128,128,128,128],
             'vf': [128,128,128,128]}
 
 model = PPO('MlpPolicy', 
-            env,
+            env=env,
             learning_rate=3e-4,
             batch_size=256,
             gamma=0.98,  # 0.99 # look forward 1.65s
