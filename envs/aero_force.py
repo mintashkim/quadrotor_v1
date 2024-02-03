@@ -1,5 +1,4 @@
 import numpy as np
-import mujoco as mj
 from numba import jit
 import sys, os
 sys.path.append('/Users/mintaekim/Desktop/Hybrid Robotics Lab/Flappy/Integrated/Flappy_Integrated/flappy_v2/envs')
@@ -10,12 +9,6 @@ from parameter import Simulation_Parameter
 from utility_functions import *
 #from utility_functions.R_body import R_body_f
 #from utility_functions.rotation_transformations import *
-
-p = Simulation_Parameter()
-xml_path = 'assets/Flappy_v6.xml'
-model = mj.MjModel.from_xml_path(xml_path)
-data = mj.MjData(model)
-
 
 @jit(nopython=True,fastmath=True)
 def lift_coeff(a, params):
@@ -146,18 +139,13 @@ def aero(model, data, xa):
         # aero states and effective air speed
         z1 = xa_m[i, 1]
         z2 = xa_m[i, 2]
-
         # downwash due to vortex
         wy = -p.a0 * p.c0 * U[i] / 4 / p.span_max * np.dot((n * np.sin(n * strip_theta[i])) / np.sin(strip_theta[i]),an)
-
         # effective downwash
         wn = vel_s_surf[2, i]
         w = wn + wy
-
         # alpha_downwash = np.arctan2(-w, vel_surf[0])[0] - aoa[i]
-
         bn[i] = -p.a0 * p.c0 / strip_c[i] * np.dot(np.sin(n * strip_theta[i]), an) + p.a0 * (w * p.Phi_0 / U[i] + p.phi_a[0] * p.phi_b[0] / (strip_c[i] / 2) * z1 + p.phi_a[1] * p.phi_b[1] * z2)
-
         # dz1/dt and dz2/dt
         fa_m[i,1] = U[i] * wn + p.phi_b[0] / (strip_c[i] / 2) * z1 #
         fa_m[i,2] = U[i] * wy + p.phi_b[1] / (strip_c[i] / 2) * z2 #

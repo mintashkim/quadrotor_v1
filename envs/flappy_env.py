@@ -11,10 +11,12 @@ from gymnasium.spaces import Box
 from gymnasium import utils
 from gymnasium.utils import seeding
 # Mujoco
+import mujoco as mj
 from mujoco_gym.mujoco_env import MujocoEnv
 # Flappy
 from dynamics import Flappy
 from parameter import Simulation_Parameter
+from aero_force import aero
 from action_filter import ActionFilterButter
 from env_randomize import EnvRandomizer
 from utility_functions import *
@@ -23,7 +25,6 @@ from rotation_transformations import *
 
 
 DEFAULT_CAMERA_CONFIG = {"trackbodyid": 0, "distance": 5.0,}
-
 TRAJECTORY_TYPES = {"linear": 0, "circular": 1, "setpoint": 2}
 
 class FlappyEnv(gym.Env):
@@ -45,8 +46,8 @@ class FlappyEnv(gym.Env):
         **kwargs
     ):
         # Dynamics simulator
-        p = Simulation_Parameter()
-        self.sim = Flappy(p=p, render=is_visual)
+        self.p = Simulation_Parameter()
+        self.sim = Flappy(p=self.p, render=is_visual)
 
         # Frequency
         self.max_timesteps         = max_timesteps
@@ -64,7 +65,7 @@ class FlappyEnv(gym.Env):
         self.traj_type          = traj_type
         self.noisy              = False
         self.randomize_dynamics = False # True to randomize dynamics
-        self.lpf_action         = lpf_action # action filter 
+        self.lpf_action         = lpf_action # Low Pass Filter 
 
         # Observation, need to be reduce later for smoothness
         self.n_state            = 41 # NOTE: change to the number of states *we can measure*
@@ -76,9 +77,9 @@ class FlappyEnv(gym.Env):
         self.previous_act       = deque(maxlen=self.history_len)
         
         self.action_space = Box(low=-100, high=100, shape=(self.n_action,))
-        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(462,)) # NOTE: change to the actual number of obs to actor policy
-        self.observation_space_policy = Box(low=-np.inf, high=np.inf, shape=(462,)) # NOTE: change to the actual number of obs to actor policy
-        self.observation_space_value_func = Box(low=-np.inf, high=np.inf, shape=(462,)) # NOTE: change to the actual number of obs to the value function
+        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(41,)) # NOTE: change to the actual number of obs to actor policy
+        self.observation_space_policy = Box(low=-np.inf, high=np.inf, shape=(41,)) # NOTE: change to the actual number of obs to actor policy
+        self.observation_space_value_func = Box(low=-np.inf, high=np.inf, shape=(41,)) # NOTE: change to the actual number of obs to the value function
         
         # NOTE: the low & high does not actually limit the actions output from MLP network, manually clip instead
         self.pos_lb = np.array([-np.inf, -np.inf, 0])  # fight space dimensions: xyz
@@ -86,7 +87,6 @@ class FlappyEnv(gym.Env):
         self.vel_lb = np.array([-2, -2, -2])
         self.vel_ub = np.array([2, 2, 2])
 
-        # NOTE: define your action bounds
         self.action_lower_bounds = np.array([8,1,0.1,2,0.1,0.1,2,2,0.15])
         self.action_upper_bounds = np.array([8.5,1.5,0.2,2.5,0.2,0.2,2.5,2.5,0.2])
         
@@ -97,21 +97,18 @@ class FlappyEnv(gym.Env):
         self.reset()
 
         # MujocoEnv
+        self.model = mj.MjModel.from_xml_path(xml_file)
+        self.data = mj.MjData(self.model)
+        self.body_list = ["Base","L1", "L2", "L3", "L4", "L5", "L6", "L7",
+                    "L1R","L2R","L3R","L4R","L5R","L6R","L7R"]
+        self.joint_list = ['J1', 'J2', 'J3', 'J5', 'J6', 'J7', 'J10',
+              'J1R','J2R','J3R','J5R','J6R','J7R','J10R']
+        self.bodyID_dic, self.jntID_dic, self.posID_dic, self.jvelID_dic = self.get_bodyIDs(self.body_list)
+        self.jID_dic = self.get_jntIDs(self.joint_list)
         utils.EzPickle.__init__(self, xml_file, frame_skip, reset_noise_scale, **kwargs)
-        MujocoEnv.__init__(
-            self,
-            xml_file,
-            frame_skip,
-            observation_space=self.observation_space,
-            default_camera_config=default_camera_config,
-            **kwargs,
-        )
+        MujocoEnv.__init__(self, xml_file, frame_skip, observation_space=self.observation_space, default_camera_config=default_camera_config, **kwargs)
         self.metadata = {
-            "render_modes": [
-                "human",
-                "rgb_array",
-                "depth_array",
-            ],
+            "render_modes": ["human", "rgb_array", "depth_array"],
             "render_fps": int(np.round(1.0 / self.dt)),
         }
         self.observation_structure = {
@@ -205,18 +202,43 @@ class FlappyEnv(gym.Env):
             action_filtered = np.copy(action)
 
         for i in range(self.num_sims_per_env_step):
-            self.sim.step(action_filtered)
+            self.do_simulation(action_filtered, self.frame_skip)
 
         self._update_data(step=True)
         self.last_act = action
+
         obs_vf, obs_pol = self._get_obs(action=action, step=True)
         reward, reward_dict = self._get_reward(action)
         self.info["reward_dict"] = reward_dict
+
+        if self.render_mode == "human":
+            self.render()
+
         terminated = self._terminated()
         truncated = False
         
-
         return obs_vf, reward, terminated, truncated, self.info
+    
+    def do_simulation(self, ctrl, n_frames) -> None:
+        if np.array(ctrl).shape != (self.model.nu,):
+            raise ValueError(
+                f"Action dimension mismatch. Expected {(self.model.nu,)}, found {np.array(ctrl).shape}"
+            )
+        self._step_mujoco_simulation(ctrl, n_frames)
+
+    def _step_mujoco_simulation(self, ctrl, n_frames):
+        self.data.ctrl[:] = ctrl
+        
+        fa, ua = aero(self.model, self.data, xa)
+        # Apply Aero forces
+        self.data.qfrc_applied[self.jvelID_dic["L5"]] = ua[0]
+        self.data.qfrc_applied[self.jvelID_dic["L6"]] = ua[1]
+        self.data.qfrc_applied[0:6] = ua[2:8]
+        # Integrate Aero States
+        xa = xa + fa * self.dt # 1 step
+
+        mj.mj_step(self.model, self.data, nstep=n_frames)
+        mj.mj_rnePostConstraint(self.model, self.data)
 
     def _update_data(self, step=True):
         # NOTE: modify obs states, ground truth states 
@@ -231,11 +253,11 @@ class FlappyEnv(gym.Env):
     def _get_reward(self, action):
         names = ['position_error', 'velocity_error', 'attitude_error', 'input', 'delta_acs']
 
-        w_position    = 80.0 # 80.0
-        w_velocity    = 20.0
-        w_orientation = 20.0
-        w_input       = 10.0
-        w_delta_act   = 10.0 #40.0 #3.0 #5.0
+        w_position    = 8.0 # 80.0
+        w_velocity    = 2.0
+        w_orientation = 2.0
+        w_input       = 1.0
+        w_delta_act   = 1.0 #40.0 #3.0 #5.0
 
         reward_weights = np.array([w_position, w_velocity, w_orientation, w_input, w_delta_act])
         weights = reward_weights / np.sum(reward_weights)  # weight can be adjusted later
@@ -287,6 +309,29 @@ class FlappyEnv(gym.Env):
             return True
         else:
             return False
+
+    def get_bodyIDs(self, body_list):
+        bodyID_dic = {}
+        jntID_dic = {}
+        posID_dic = {}
+        jvelID_dic = {}
+        for bodyName in body_list:
+            mjID = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, bodyName)
+            jntID = self.model.body_jntadr[mjID]   # joint ID
+            jvelID = self.model.body_dofadr[mjID]  # joint velocity
+            posID = self.model.jnt_qposadr[jntID]  # joint position
+            bodyID_dic[bodyName] = mjID
+            jntID_dic[bodyName] = jntID
+            posID_dic[bodyName] = posID
+            jvelID_dic[bodyName] = jvelID
+        return bodyID_dic, jntID_dic, posID_dic, jvelID_dic
+
+    def get_jntIDs(self, jnt_list):
+        jointID_dic = {}
+        for jointName in jnt_list:
+            jointID = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, jointName)
+            jointID_dic[jointName] = jointID
+        return jointID_dic
 
     def test(self, model):
         for i in range(5):

@@ -261,9 +261,7 @@ class MujocoEnv(BaseMujocoEnv):
 
     def _step_mujoco_simulation(self, ctrl, n_frames):
         self.data.ctrl[:] = ctrl
-
         mujoco.mj_step(self.model, self.data, nstep=n_frames)
-
         mujoco.mj_rnePostConstraint(self.model, self.data)
 
     def render(self):
