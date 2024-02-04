@@ -34,7 +34,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
     
     def __init__(
         self,
-        max_timesteps = 3000,
+        max_timesteps = 100,
         is_visual     = False,
         randomize     = False,
         debug         = False,
@@ -70,7 +70,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         self.lpf_action         = lpf_action # Low Pass Filter 
 
         # Observation, need to be reduce later for smoothness
-        self.n_state            = 41 # NOTE: change to the number of states *we can measure*
+        self.n_state            = 84 # NOTE: change to the number of states *we can measure*
         self.n_action           = 7  # NOTE: change to the number of action
         self.history_len_short  = 4
         self.history_len_long   = 10
@@ -79,7 +79,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         self.previous_act       = deque(maxlen=self.history_len)
         
         self.action_space = Box(low=-100, high=100, shape=(self.n_action,))
-        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(454,)) # NOTE: change to the actual number of obs to actor policy
+        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(28,)) # NOTE: change to the actual number of obs to actor policy
         self.observation_space_policy = Box(low=-np.inf, high=np.inf, shape=(454,)) # NOTE: change to the actual number of obs to actor policy
         self.observation_space_value_func = Box(low=-np.inf, high=np.inf, shape=(454,)) # NOTE: change to the actual number of obs to the value function
         
@@ -92,12 +92,6 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         self.action_lower_bounds = np.array([-30,0,0,0,0,0,0])
         self.action_upper_bounds = np.array([0,2,2,2,2,0.5,0.5])
         
-        # Info for normalizing the state
-        self._init_action_filter()
-        # self._init_env_randomizer() # NOTE: Take out dynamics randomization first 
-        self._seed()
-        self.reset()
-
         # MujocoEnv
         self.model = mj.MjModel.from_xml_path(xml_file)
         self.data = mj.MjData(self.model)
@@ -107,8 +101,10 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
                            'J1R','J2R','J3R','J5R','J6R','J7R','J10R']
         self.bodyID_dic, self.jntID_dic, self.posID_dic, self.jvelID_dic = self.get_bodyIDs(self.body_list)
         self.jID_dic = self.get_jntIDs(self.joint_list)
+        
         utils.EzPickle.__init__(self, xml_file, frame_skip, reset_noise_scale, **kwargs)
         MujocoEnv.__init__(self, xml_file, frame_skip, observation_space=self.observation_space, default_camera_config=default_camera_config, **kwargs)
+        
         self.metadata = {
             "render_modes": ["human", "rgb_array", "depth_array"],
             "render_fps": int(np.round(1.0 / self.dt)),
@@ -118,6 +114,25 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
             "qvel": self.data.qvel.size,
         }
         self.xa = np.zeros(3 * self.p.n_Wagner)
+
+        # Info for normalizing the state
+        self._init_action_filter()
+        # self._init_env_randomizer() # NOTE: Take out dynamics randomization first 
+        self._seed()
+        self.reset()
+        self._init_env()
+
+    @property
+    def dt(self) -> float:
+        # return self.model.opt.timestep * self.frame_skip
+        return 2e-5
+
+    def _init_env(self):
+        print("Environment created")
+        action = self.action_space.sample()
+        print("Sample action: {}".format(action))
+        print("Control range: {}".format(self.model.actuator_ctrlrange))
+        print("Time step(dt): {}".format(self.dt))
 
     def _init_action_filter(self):
         self.action_filter = ActionFilterButter(
@@ -140,7 +155,9 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         # self.env_randomizer.randomize_dynamics()
         # self._set_dynamics_properties()
         self._update_data(step=False)
-        return self._get_obs(step=False)
+        obs = self._get_obs()
+        info = self._get_reset_info
+        return obs, info
     
     def reset_model(self):
         noise_low = -self._reset_noise_scale
@@ -155,13 +172,6 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         self.set_state(qpos, qvel)
         return self._get_obs()
 
-    def _init_env_randomizer(self):
-        self.env_randomizer = EnvRandomizer(self.sim)
-
-    def _set_dynamics_properties(self):
-        if self.randomize_dynamics:
-            self.sim.set_dynamics()
-
     def _reset_env(self, randomize=False):
         self.timestep    = 0 # discrete timestep, k
         self.time_in_sec = 0.0 # time 
@@ -174,20 +184,30 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         self.terminated = None
         self.info       = {}
 
-    def _get_obs(self, action=0.0, step=False):
-        obs_curr    = self.obs_states      
-        obs_curr_gt = self.gt_states
-        obs_command = self.goal
-        if self.timestep == 0:
-            [self.previous_obs.append(obs_curr) for i in range(self.history_len)]
-            [self.previous_act.append(np.zeros(self.n_action)) for i in range(self.history_len)]
-        obs_prev = np.concatenate([np.array(self.previous_obs, dtype=object).flatten(), np.array(self.previous_act, dtype=object).flatten()])
-        obs_pol  = np.concatenate([obs_prev, obs_curr, obs_command])
-        obs_vf   = np.concatenate([obs_prev, obs_curr_gt, obs_command])
-        if step:
-            self.previous_obs.append(obs_curr)
-            self.previous_act.append(action)
-        return obs_vf, obs_pol
+    def _init_env_randomizer(self):
+        self.env_randomizer = EnvRandomizer(self.sim)
+
+    def _set_dynamics_properties(self):
+        if self.randomize_dynamics:
+            self.sim.set_dynamics()
+
+    # def _get_obs(self, action=0.0, step=False):
+    #     obs_curr    = self.obs_states      
+    #     obs_curr_gt = self.gt_states
+    #     obs_command = self.goal
+    #     if self.timestep == 0:
+    #         [self.previous_obs.append(obs_curr) for i in range(self.history_len)]
+    #         [self.previous_act.append(np.zeros(self.n_action)) for i in range(self.history_len)]
+    #     obs_prev = np.concatenate([np.array(self.previous_obs, dtype=object).flatten(), np.array(self.previous_act, dtype=object).flatten()])
+    #     obs_pol  = np.concatenate([obs_prev, obs_curr, obs_command])
+    #     obs_vf   = np.concatenate([obs_prev, obs_curr_gt, obs_command])
+    #     if step:
+    #         self.previous_obs.append(obs_curr)
+    #         self.previous_act.append(action)
+    #     return obs_vf, obs_pol
+
+    def _get_obs(self):
+        return np.concatenate([self.data.qpos, self.data.qvel]).ravel()
 
     def _act_norm2actual(self, act):
         return self.action_lower_bounds + (act + 1)/2.0 * (self.action_upper_bounds - self.action_lower_bounds)
@@ -210,7 +230,8 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         self._update_data(step=True)
         self.last_act = action
 
-        obs_vf, obs_pol = self._get_obs(action=action, step=True)
+        # obs_vf, obs_pol = self._get_obs(action=action, step=True)
+        obs = self._get_obs()
         reward, reward_dict = self._get_reward(action)
         self.info["reward_dict"] = reward_dict
 
@@ -220,7 +241,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         terminated = self._terminated()
         truncated = False
         
-        return obs_vf, reward, terminated, truncated, self.info
+        return obs, reward, terminated, truncated, self.info
     
     def do_simulation(self, ctrl, n_frames) -> None:
         if np.array(ctrl).shape != (self.model.nu,):
@@ -430,11 +451,3 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
 
     def close(self):
         return
-    
-if __name__ == "__main__":
-    env = FlappyEnv(render_mode="human")
-    print("Environment created")
-    action = env.action_space.sample()
-    print("Sample action: {}".format(action))
-    print("Control range: {}".format(env.model.actuator_ctrlrange))
-    print("Time step(dt): {}".format(env.dt))
