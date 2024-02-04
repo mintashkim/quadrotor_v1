@@ -57,7 +57,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         self.sim_freq              = self.sim.freq # 2000Hz
         # self.dt                    = 1.0 / self.sim_freq # 1/2000
         self.policy_freq           = 30 # 30Hz but the real control frequency is not exactly 30Hz because we round up the num_sims_per_env_step
-        self.num_sims_per_env_step = self.sim_freq // self.policy_freq
+        self.num_sims_per_env_step = self.sim_freq // self.policy_freq # 2000//30 = 66
         self.secs_per_env_step     = self.num_sims_per_env_step / self.sim_freq
         self.policy_freq           = int(1.0/self.secs_per_env_step)
 
@@ -101,10 +101,10 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         # MujocoEnv
         self.model = mj.MjModel.from_xml_path(xml_file)
         self.data = mj.MjData(self.model)
-        self.body_list = ["Base","L1", "L2", "L3", "L4", "L5", "L6", "L7",
-                    "L1R","L2R","L3R","L4R","L5R","L6R","L7R"]
-        self.joint_list = ['J1', 'J2', 'J3', 'J5', 'J6', 'J7', 'J10',
-              'J1R','J2R','J3R','J5R','J6R','J7R','J10R']
+        self.body_list = ["Base","L1","L2","L3","L4","L5","L6","L7",
+                          "L1R","L2R","L3R","L4R","L5R","L6R","L7R"]
+        self.joint_list = ['J1','J2','J3','J5','J6','J7','J10',
+                           'J1R','J2R','J3R','J5R','J6R','J7R','J10R']
         self.bodyID_dic, self.jntID_dic, self.posID_dic, self.jvelID_dic = self.get_bodyIDs(self.body_list)
         self.jID_dic = self.get_jntIDs(self.joint_list)
         utils.EzPickle.__init__(self, xml_file, frame_skip, reset_noise_scale, **kwargs)
@@ -204,7 +204,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         else:
             action_filtered = np.copy(action)
 
-        for i in range(self.num_sims_per_env_step):
+        for _ in range(self.num_sims_per_env_step):
             self.do_simulation(action_filtered, self.frame_skip)
 
         self._update_data(step=True)
@@ -224,9 +224,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
     
     def do_simulation(self, ctrl, n_frames) -> None:
         if np.array(ctrl).shape != (self.model.nu,):
-            raise ValueError(
-                f"Action dimension mismatch. Expected {(self.model.nu,)}, found {np.array(ctrl).shape}"
-            )
+            raise ValueError(f"Action dimension mismatch. Expected {(self.model.nu,)}, found {np.array(ctrl).shape}")
         self._step_mujoco_simulation(ctrl, n_frames)
 
     def _step_mujoco_simulation(self, ctrl, n_frames):
@@ -239,7 +237,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         self.data.qfrc_applied[self.jvelID_dic["L6"]] = ua[1]
         self.data.qfrc_applied[0:6] = ua[2:8]
         # Integrate Aero States
-        self.xa = self.xa + fa * self.dt # 1 step
+        self.xa = self.xa + fa * self.dt # self.dt = 4e-3
 
         mj.mj_step(self.model, self.data, nstep=n_frames)
         mj.mj_rnePostConstraint(self.model, self.data)
@@ -439,4 +437,4 @@ if __name__ == "__main__":
     action = env.action_space.sample()
     print("Sample action: {}".format(action))
     print("Control range: {}".format(env.model.actuator_ctrlrange))
-    print("Time step (dt): {}".format(env.dt))
+    print("Time step(dt): {}".format(env.dt))

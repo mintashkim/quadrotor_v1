@@ -1,6 +1,0 @@
-Fri Feb  2 22:54:40 2024
-WARNING: mju_openResource: unknown file 'Flappy_v6.xml'
-
-Fri Feb  2 22:55:50 2024
-WARNING: mju_openResource: unknown file 'assets/Flappy_v6.xml'
-

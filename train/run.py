@@ -9,10 +9,10 @@ from envs.flappy_env import FlappyEnv
 
 
 log_path = os.path.join('logs')
+save_path = os.path.join('saved_models')
 env = FlappyEnv(render_mode="human")
 # env = DummyVecEnv([lambda: env])
 
-save_path = os.path.join('train', 'saved_models')
 stop_callback = StopTrainingOnRewardThreshold(reward_threshold=100, verbose=1)
 eval_callback = EvalCallback(env,
                              callback_on_new_best=stop_callback,
