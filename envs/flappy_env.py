@@ -54,12 +54,12 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         # Frequency
         self.max_timesteps         = max_timesteps
         self.timestep              = 0.0
-        self.sim_freq              = self.sim.freq # 2000Hz
-        # self.dt                    = 1.0 / self.sim_freq # 1/2000
-        self.policy_freq           = 30 # 30Hz but the real control frequency is not exactly 30Hz because we round up the num_sims_per_env_step
+        self.sim_freq              = self.sim.freq # NOTE: 2000Hz for hard coding
+        # self.dt                    = 1.0 / self.sim_freq # NOTE: 1/2000s for hard coding
+        self.policy_freq           = 30 # NOTE: 30Hz but the real control frequency might not be exactly 30Hz because we round up the num_sims_per_env_step
         self.num_sims_per_env_step = self.sim_freq // self.policy_freq # 2000//30 = 66
-        self.secs_per_env_step     = self.num_sims_per_env_step / self.sim_freq
-        self.policy_freq           = int(1.0/self.secs_per_env_step)
+        self.secs_per_env_step     = self.num_sims_per_env_step / self.sim_freq # 66/2000 = 0.033s
+        self.policy_freq           = int(1.0/self.secs_per_env_step) # 1000/33 = 30Hz
 
         self.is_visual          = is_visual
         self.randomize          = randomize
@@ -84,8 +84,8 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         self.observation_space_value_func = Box(low=-np.inf, high=np.inf, shape=(454,)) # NOTE: change to the actual number of obs to the value function
         
         # NOTE: the low & high does not actually limit the actions output from MLP network, manually clip instead
-        self.pos_lb = np.array([-np.inf, -np.inf, 0])  # fight space dimensions: xyz
-        self.pos_ub = np.array([np.inf, np.inf, 4])  # fight space dimensions
+        self.pos_lb = np.array([-20, -20, 0]) # fight space dimensions: xyz
+        self.pos_ub = np.array([20, 20, 20])
         self.vel_lb = np.array([-2, -2, -2])
         self.vel_ub = np.array([2, 2, 2])
 
@@ -124,7 +124,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
 
     @property
     def dt(self) -> float:
-        # return self.model.opt.timestep * self.frame_skip
+        # return self.model.opt.timestep * self.frame_skip # 4e-3
         return 2e-5
 
     def _init_env(self):
@@ -224,8 +224,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         else:
             action_filtered = np.copy(action)
 
-        for _ in range(self.num_sims_per_env_step):
-            self.do_simulation(action_filtered, self.frame_skip)
+        self.do_simulation(action_filtered, self.frame_skip)
 
         self._update_data(step=True)
         self.last_act = action
@@ -249,19 +248,20 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         self._step_mujoco_simulation(ctrl, n_frames)
 
     def _step_mujoco_simulation(self, ctrl, n_frames):
-        self.data.ctrl[:] = ctrl
-        self.data.ctrl[0] = -29.8451302
-        self.xd, R_body = self._get_original_states()
-        fa, ua, self.xd = aero(self.model, self.data, self.xa, self.xd, R_body)
-        # Apply Aero forces
-        self.data.qfrc_applied[self.jvelID_dic["L5"]] = ua[0]
-        self.data.qfrc_applied[self.jvelID_dic["L6"]] = ua[1]
-        self.data.qfrc_applied[0:6] = ua[2:8]
-        # Integrate Aero States
-        self.xa = self.xa + fa * self.dt # self.dt = 4e-3
+        for _ in range(self.num_sims_per_env_step):
+            self.data.ctrl[:] = ctrl
+            self.data.ctrl[0] = -29.8451302
+            self.xd, R_body = self._get_original_states()
+            fa, ua, self.xd = aero(self.model, self.data, self.xa, self.xd, R_body)
+            # Apply Aero forces
+            self.data.qfrc_applied[self.jvelID_dic["L5"]] = ua[0]
+            self.data.qfrc_applied[self.jvelID_dic["L6"]] = ua[1]
+            self.data.qfrc_applied[0:6] = ua[2:8]
+            # Integrate Aero States
+            self.xa = self.xa + fa * self.dt
 
-        mj.mj_step(self.model, self.data, nstep=n_frames)
-        mj.mj_rnePostConstraint(self.model, self.data)
+            mj.mj_step(self.model, self.data, nstep=n_frames)
+            mj.mj_rnePostConstraint(self.model, self.data)
 
     def _get_original_states(self):
         #takes mujoco states vectors and converts to MATLAB states vectors defined in func_eom
@@ -319,7 +319,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         scale_input     = 5.0
         scale_delta_act = 1.0  # 2.0
 
-        desired_pos = np.array([0.0, 0.0, 2.0]).reshape(3,1) # x y z 
+        desired_pos = np.array([0.0, 0.0, 5.0]).reshape(3,1) # x y z 
         desired_vel = np.array([0.0, 0.0, 0.0]).reshape(3,1) # vx vy vz
         desired_ori = np.array([0.0, 0.0, 0.0]).reshape(3,1) # roll, pitch, yaw
         current_pos = self.data.qpos
@@ -348,15 +348,16 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         return total_reward, reward_dict
 
     def _terminated(self):
-        pos_ub = np.array([20., 20., 20.])
-        pos_lb = np.array([-20., -20., 0])
-
-        if not ((self.sim.robot_pos <= pos_ub).all() and (self.sim.robot_pos >= pos_lb).all()):
-            print("Out of bounds ", self.timestep)
-            if self.debug: print("Out of position bounds")
+        if not((self.data.qpos[0:3] <= self.pos_ub).all() 
+                and (self.data.qpos[0:3] >= self.pos_lb).all()):
+            print("Out of position bounds ", self.timestep)
+            return True
+        if not((self.data.qvel[0:3] <= self.vel_ub).all() 
+                and (self.data.qvel[0:3] >= self.vel_lb).all()):
+            print("Out of velocity bounds ", self.timestep)
             return True
         if self.timestep >= self.max_timesteps:
-            if self.debug: print("Max step reached: {}".format(self.max_timesteps))
+            print("Max step reached: {}".format(self.max_timesteps))
             return True
         else:
             return False
