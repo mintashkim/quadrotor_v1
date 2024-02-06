@@ -225,7 +225,6 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
             action_filtered = np.copy(action)
 
         self.do_simulation(action_filtered, self.frame_skip)
-
         self._update_data(step=True)
         self.last_act = action
 
@@ -239,6 +238,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
 
         terminated = self._terminated()
         truncated = False
+        self.timestep += 1
         
         return obs, reward, terminated, truncated, self.info
     
@@ -250,45 +250,46 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
     def _step_mujoco_simulation(self, ctrl, n_frames):
         for _ in range(self.num_sims_per_env_step):
             self.data.ctrl[:] = ctrl
-            self.data.ctrl[0] = -29.8451302
-            self.xd, R_body = self._get_original_states()
-            fa, ua, self.xd = aero(self.model, self.data, self.xa, self.xd, R_body)
-            # Apply Aero forces
-            self.data.qfrc_applied[self.jvelID_dic["L5"]] = ua[0]
-            self.data.qfrc_applied[self.jvelID_dic["L6"]] = ua[1]
-            self.data.qfrc_applied[0:6] = ua[2:8]
-            # Integrate Aero States
-            self.xa = self.xa + fa * self.dt
+            # self.data.ctrl[0] = -29.8451302
+
+            # self.xd, R_body = self._get_original_states()
+            # fa, ua, self.xd = aero(self.model, self.data, self.xa, self.xd, R_body)
+            # # Apply Aero forces
+            # self.data.qfrc_applied[self.jvelID_dic["L5"]] = ua[0]
+            # self.data.qfrc_applied[self.jvelID_dic["L6"]] = ua[1]
+            # self.data.qfrc_applied[0:6] = ua[2:8]
+            # # Integrate Aero States
+            # self.xa = self.xa + fa * self.dt
 
             mj.mj_step(self.model, self.data, nstep=n_frames)
             mj.mj_rnePostConstraint(self.model, self.data)
 
     def _get_original_states(self):
-        #takes mujoco states vectors and converts to MATLAB states vectors defined in func_eom
-        qvel = self.data.qvel
+        # Takes mujoco states vectors and converts to MATLAB states vectors defined in func_eom
         qpos = self.data.qpos
+        qvel = self.data.qvel     
         N = len(qpos)
 
-        xd = np.array([0.0]*22)
+        xd = np.zeros(22)
         xd[0] = qpos[self.posID_dic["L5"]]
         xd[1] = qpos[self.posID_dic["L6"]]
         if N == 21:
-            xd[2:5] = list(qpos[0:3])
+            xd[2:5] = qpos[0:3]
         else:
-            xd[2:5] = [0,0,0.5]
+            xd[2:5] = np.array([0,0,0.5])
 
         xd[5] = qvel[self.jvelID_dic["L5"]]
         xd[6] = qvel[self.jvelID_dic["L6"]]
         
         if N==21:
-            xd[7:10] = list(qvel[0:3])
-            xd[10:13] = list(qvel[3:6])
+            xd[7:10] = qvel[0:3]
+            xd[10:13] = qvel[3:6]
         else:
-            xd[7:10] = [0,0,0]
-            xd[10:13] = [0,0,0]
+            xd[7:10] = np.zeros(3)
+            xd[10:13] = np.zeros(3)
 
         R_B = R_body(self.model, self.data)
-        xd[13:23] = list(np.transpose(R_B).flatten())
+        xd[13:23] = np.transpose(R_B).flatten()
         return xd, R_B
 
     def _update_data(self, step=True):
@@ -304,11 +305,11 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
     def _get_reward(self, action):
         names = ['position_error', 'velocity_error', 'attitude_error', 'input', 'delta_acs']
 
-        w_position    = 8.0 # 80.0
-        w_velocity    = 2.0
-        w_orientation = 2.0
-        w_input       = 1.0
-        w_delta_act   = 1.0 #40.0 #3.0 #5.0
+        w_position    = 1.0
+        w_velocity    = 1.0
+        w_orientation = 0.2
+        w_input       = 0.0002
+        w_delta_act   = 0.01
 
         reward_weights = np.array([w_position, w_velocity, w_orientation, w_input, w_delta_act])
         weights = reward_weights / np.sum(reward_weights)  # weight can be adjusted later
@@ -316,15 +317,15 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         scale_pos       = 10.0
         scale_vel       = 1.0
         scale_ori       = 1.0
-        scale_input     = 5.0
+        scale_input     = 1.0
         scale_delta_act = 1.0  # 2.0
 
-        desired_pos = np.array([0.0, 0.0, 5.0]).reshape(3,1) # x y z 
+        desired_pos = np.array([0.0, 0.0, 0.5]).reshape(3,1) # x y z 
         desired_vel = np.array([0.0, 0.0, 0.0]).reshape(3,1) # vx vy vz
         desired_ori = np.array([0.0, 0.0, 0.0]).reshape(3,1) # roll, pitch, yaw
         current_pos = self.data.qpos
         current_vel = self.data.qvel
-        current_att = quat2euler_raw(self.data.qpos[3:7]) # euler_mes
+        current_ori = quat2euler_raw(self.data.qpos[3:7]) # euler_mes
         
         pos_err = np.linalg.norm(current_pos - desired_pos) 
         r_pos = np.exp(-scale_pos * pos_err)
@@ -332,7 +333,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         vel_err = np.linalg.norm(current_vel- desired_vel) 
         r_vel = np.exp(-scale_vel * vel_err)  # scale_vel need to be adjust later
 
-        ori_err = np.linalg.norm(current_att- desired_ori)
+        ori_err = np.linalg.norm(current_ori- desired_ori)
         r_ori = np.exp(-scale_ori * ori_err)
 
         input_err = np.linalg.norm(action) 
@@ -350,11 +351,11 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
     def _terminated(self):
         if not((self.data.qpos[0:3] <= self.pos_ub).all() 
                 and (self.data.qpos[0:3] >= self.pos_lb).all()):
-            print("Out of position bounds ", self.timestep)
+            print("Out of position bounds ", self.data.qpos[0:3], self.timestep)
             return True
         if not((self.data.qvel[0:3] <= self.vel_ub).all() 
                 and (self.data.qvel[0:3] >= self.vel_lb).all()):
-            print("Out of velocity bounds ", self.timestep)
+            print("Out of velocity bounds ", self.data.qvel[0:3], self.timestep)
             return True
         if self.timestep >= self.max_timesteps:
             print("Max step reached: {}".format(self.max_timesteps))
