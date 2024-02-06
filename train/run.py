@@ -20,8 +20,8 @@ eval_callback = EvalCallback(env,
                              best_model_save_path=save_path,
                              verbose=1)
 
-net_arch = {'pi': [128,128,128,128],
-            'vf': [128,128,128,128]}
+net_arch = {'pi': [512,256,128],
+            'vf': [512,256,128]}
 
 model = PPO('MlpPolicy', 
             env=env,

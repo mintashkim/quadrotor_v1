@@ -26,7 +26,7 @@ from rotation_transformations import *
 from R_body import R_body
 
 
-DEFAULT_CAMERA_CONFIG = {"trackbodyid": 0, "distance": 5.0,}
+DEFAULT_CAMERA_CONFIG = {"trackbodyid": 0, "distance": 10.0,}
 TRAJECTORY_TYPES = {"linear": 0, "circular": 1, "setpoint": 2}
 
 class FlappyEnv(MujocoEnv, utils.EzPickle):
@@ -124,8 +124,8 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
 
     @property
     def dt(self) -> float:
-        # return self.model.opt.timestep * self.frame_skip # 4e-3
-        return 2e-5
+        return self.model.opt.timestep * self.frame_skip # 4e-3
+        # return 2e-5
 
     def _init_env(self):
         print("Environment created")
@@ -250,7 +250,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
     def _step_mujoco_simulation(self, ctrl, n_frames):
         for _ in range(self.num_sims_per_env_step):
             self.data.ctrl[:] = ctrl
-            # self.data.ctrl[0] = -29.8451302
+            self.data.ctrl[0] = -29.8451302
 
             # self.xd, R_body = self._get_original_states()
             # fa, ua, self.xd = aero(self.model, self.data, self.xa, self.xd, R_body)
@@ -452,4 +452,5 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         return log
 
     def close(self):
-        return
+        if self.mujoco_renderer is not None:
+            self.mujoco_renderer.close()
