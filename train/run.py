@@ -1,7 +1,8 @@
 import os
 import sys
-sys.path.append('/Users/mintaekim/Desktop/Hybrid Robotics Lab/Flappy/Integrated/Flappy_Integrated/flappy_v2')
-from stable_baselines3 import PPO
+sys.path.append('/Users/mintaekim/Desktop/HRL/Flappy/Integrated/Flappy_Integrated/flappy_v2')
+from envs.ppo.ppo import PPO # Customized
+# from stable_baselines3 import PPO # Naive
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnRewardThreshold
@@ -10,6 +11,7 @@ from envs.flappy_env import FlappyEnv
 
 log_path = os.path.join('logs')
 save_path = os.path.join('saved_models')
+best_model_save_path = os.path.join('saved_models', 'best_model')
 env = FlappyEnv(render_mode="human")
 env = DummyVecEnv([lambda: env])
 
@@ -34,6 +36,7 @@ model = PPO('MlpPolicy',
             policy_kwargs={'net_arch':net_arch},
             tensorboard_log=log_path)
 
+# model = PPO.load(best_model_save_path, env=env)
 model.learn(total_timesteps=100,
             progress_bar=True,
             callback=eval_callback)

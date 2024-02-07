@@ -1,8 +1,8 @@
 # Helpers
 import os
 import sys
-sys.path.append('/Users/mintaekim/Desktop/Hybrid Robotics Lab/Flappy/Integrated/Flappy_Integrated/flappy_v2')
-sys.path.append('/Users/mintaekim/Desktop/Hybrid Robotics Lab/Flappy/Integrated/Flappy_Integrated/flappy_v2/envs')
+sys.path.append('/Users/mintaekim/Desktop/HRL/Flappy/Integrated/Flappy_Integrated/flappy_v2')
+sys.path.append('/Users/mintaekim/Desktop/HRL/Flappy/Integrated/Flappy_Integrated/flappy_v2/envs')
 import numpy as np
 from typing import Dict, Union
 from collections import deque
@@ -38,10 +38,10 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         is_visual     = False,
         randomize     = False,
         debug         = False,
-        lpf_action    = False,
+        lpf_action    = True,
         traj_type     = False,
         # MujocoEnv
-        xml_file: str = "../assets/Flappy_v6.xml",
+        xml_file: str = "../assets/Flappy_v3.xml",
         frame_skip: int = 2,
         default_camera_config: Dict[str, Union[float, int]] = DEFAULT_CAMERA_CONFIG,
         reset_noise_scale: float = 0.01,
@@ -64,6 +64,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         self.is_visual          = is_visual
         self.randomize          = randomize
         self.debug              = debug
+        self.is_plotting        = True
         self.traj_type          = traj_type
         self.noisy              = False
         self.randomize_dynamics = False # True to randomize dynamics
@@ -79,7 +80,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         self.previous_act       = deque(maxlen=self.history_len)
         
         self.action_space = Box(low=-100, high=100, shape=(self.n_action,))
-        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(28,)) # NOTE: change to the actual number of obs to actor policy
+        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(41,)) # NOTE: change to the actual number of obs to actor policy
         self.observation_space_policy = Box(low=-np.inf, high=np.inf, shape=(454,)) # NOTE: change to the actual number of obs to actor policy
         self.observation_space_value_func = Box(low=-np.inf, high=np.inf, shape=(454,)) # NOTE: change to the actual number of obs to the value function
         
@@ -91,6 +92,9 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
 
         self.action_lower_bounds = np.array([-30,0,0,0,0,0,0])
         self.action_upper_bounds = np.array([0,2,2,2,2,0.5,0.5])
+        self.action_bounds_scale = 0.2
+        self.action_lower_bounds_actual = self.action_lower_bounds + self.action_bounds_scale * self.action_upper_bounds
+        self.action_upper_bounds_actual = (1 - self.action_bounds_scale) * self.action_upper_bounds
         
         # MujocoEnv
         self.model = mj.MjModel.from_xml_path(xml_file)
@@ -131,7 +135,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         print("Environment created")
         action = self.action_space.sample()
         print("Sample action: {}".format(action))
-        print("Control range: {}".format(self.model.actuator_ctrlrange))
+        print("Control range: {}".format(self.model.actuator_ctrlrange.flatten()))
         print("Time step(dt): {}".format(self.dt))
 
     def _init_action_filter(self):
@@ -191,26 +195,11 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         if self.randomize_dynamics:
             self.sim.set_dynamics()
 
-    # def _get_obs(self, action=0.0, step=False):
-    #     obs_curr    = self.obs_states      
-    #     obs_curr_gt = self.gt_states
-    #     obs_command = self.goal
-    #     if self.timestep == 0:
-    #         [self.previous_obs.append(obs_curr) for i in range(self.history_len)]
-    #         [self.previous_act.append(np.zeros(self.n_action)) for i in range(self.history_len)]
-    #     obs_prev = np.concatenate([np.array(self.previous_obs, dtype=object).flatten(), np.array(self.previous_act, dtype=object).flatten()])
-    #     obs_pol  = np.concatenate([obs_prev, obs_curr, obs_command])
-    #     obs_vf   = np.concatenate([obs_prev, obs_curr_gt, obs_command])
-    #     if step:
-    #         self.previous_obs.append(obs_curr)
-    #         self.previous_act.append(action)
-    #     return obs_vf, obs_pol
-
     def _get_obs(self):
         return np.concatenate([self.data.qpos, self.data.qvel]).ravel()
 
     def _act_norm2actual(self, act):
-        return self.action_lower_bounds + (act + 1)/2.0 * (self.action_upper_bounds - self.action_lower_bounds)
+        return self.action_lower_bounds_actual + (act + 1)/2.0 * (self.action_upper_bounds_actual - self.action_lower_bounds_actual)
 
     def step(self, action_normalized, restore=False):
         assert action_normalized.shape[0] == self.n_action and -1.0 <= action_normalized.all() <= 1.0
@@ -281,7 +270,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         xd[5] = qvel[self.jvelID_dic["L5"]]
         xd[6] = qvel[self.jvelID_dic["L6"]]
         
-        if N==21:
+        if N == 21:
             xd[7:10] = qvel[0:3]
             xd[10:13] = qvel[3:6]
         else:
@@ -308,17 +297,17 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         w_position    = 1.0
         w_velocity    = 1.0
         w_orientation = 0.2
-        w_input       = 0.0002
+        w_input       = 0.002
         w_delta_act   = 0.01
 
         reward_weights = np.array([w_position, w_velocity, w_orientation, w_input, w_delta_act])
         weights = reward_weights / np.sum(reward_weights)  # weight can be adjusted later
 
-        scale_pos       = 10.0
+        scale_pos       = 1.0
         scale_vel       = 1.0
         scale_ori       = 1.0
         scale_input     = 1.0
-        scale_delta_act = 1.0  # 2.0
+        scale_delta_act = 1.0
 
         desired_pos = np.array([0.0, 0.0, 0.5]).reshape(3,1) # x y z 
         desired_vel = np.array([0.0, 0.0, 0.0]).reshape(3,1) # vx vy vz
@@ -352,10 +341,12 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         if not((self.data.qpos[0:3] <= self.pos_ub).all() 
                 and (self.data.qpos[0:3] >= self.pos_lb).all()):
             print("Out of position bounds ", self.data.qpos[0:3], self.timestep)
+            print("Reward dict ", self.info["reward_dict"])
             return True
         if not((self.data.qvel[0:3] <= self.vel_ub).all() 
                 and (self.data.qvel[0:3] >= self.vel_lb).all()):
             print("Out of velocity bounds ", self.data.qvel[0:3], self.timestep)
+            print("Reward dict ", self.info["reward_dict"])
             return True
         if self.timestep >= self.max_timesteps:
             print("Max step reached: {}".format(self.max_timesteps))
