@@ -6,6 +6,10 @@ sys.path.append('/Users/mintaekim/Desktop/HRL/Flappy/Integrated/Flappy_Integrate
 import numpy as np
 from typing import Dict, Union
 from collections import deque
+import matplotlib.pyplot as plt
+
+from matplotlib.animation import FuncAnimation
+import time
 # Gym
 import gymnasium as gym
 from gymnasium.spaces import Box
@@ -117,7 +121,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
             "qpos": self.data.qpos.size,
             "qvel": self.data.qvel.size,
         }
-        self.xa = np.zeros(3 * self.p.n_Wagner)
+        self.xa = np.zeros(3 * self.p.n_Wagner) # aero()
 
         # Info for normalizing the state
         self._init_action_filter()
@@ -126,10 +130,16 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         self.reset()
         self._init_env()
 
+        self.timestep_plot = []
+        self.reward_plot = []
+        self.fig, self.ax = plt.subplots()
+        self.graph = self.ax.plot(self.timestep_plot, self.reward_plot, color = 'g')[0]
+        self.animation = FuncAnimation(fig=self.fig, func=self._update_plot, blit=True)
+        
     @property
     def dt(self) -> float:
-        return self.model.opt.timestep * self.frame_skip # 4e-3
-        # return 2e-5
+        # return self.model.opt.timestep * self.frame_skip # 4e-3
+        return 2e-5
 
     def _init_env(self):
         print("Environment created")
@@ -137,6 +147,10 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         print("Sample action: {}".format(action))
         print("Control range: {}".format(self.model.actuator_ctrlrange.flatten()))
         print("Time step(dt): {}".format(self.dt))
+    
+    def _update_plot(self):
+        self.graph.set_xdata(self.timestep_plot)
+        self.graph.set_ydata(self.reward_plot)
 
     def _init_action_filter(self):
         self.action_filter = ActionFilterButter(
@@ -228,6 +242,11 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         terminated = self._terminated()
         truncated = False
         self.timestep += 1
+        self.timestep_plot.append(self.timestep)
+        self.reward_plot.append(reward)
+
+        plt.tight_layout()
+        plt.show()
         
         return obs, reward, terminated, truncated, self.info
     
@@ -292,7 +311,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
             # self.reference_generator.update_ref_env(self.time_in_sec)
 
     def _get_reward(self, action):
-        names = ['position_error', 'velocity_error', 'attitude_error', 'input', 'delta_acs']
+        names = ['position_error', 'velocity_error', 'orientation_error', 'input', 'delta_acs']
 
         w_position    = 1.0
         w_velocity    = 1.0
@@ -341,12 +360,10 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         if not((self.data.qpos[0:3] <= self.pos_ub).all() 
                 and (self.data.qpos[0:3] >= self.pos_lb).all()):
             print("Out of position bounds ", self.data.qpos[0:3], self.timestep)
-            print("Reward dict ", self.info["reward_dict"])
             return True
         if not((self.data.qvel[0:3] <= self.vel_ub).all() 
                 and (self.data.qvel[0:3] >= self.vel_lb).all()):
             print("Out of velocity bounds ", self.data.qvel[0:3], self.timestep)
-            print("Reward dict ", self.info["reward_dict"])
             return True
         if self.timestep >= self.max_timesteps:
             print("Max step reached: {}".format(self.max_timesteps))
