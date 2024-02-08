@@ -3,7 +3,7 @@ import sys
 sys.path.append('/Users/mintaekim/Desktop/HRL/Flappy/Integrated/Flappy_Integrated/flappy_v2')
 from envs.ppo.ppo import PPO # Customized
 # from stable_baselines3 import PPO # Naive
-from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnRewardThreshold
 from envs.flappy_env import FlappyEnv
@@ -13,9 +13,9 @@ log_path = os.path.join('logs')
 save_path = os.path.join('saved_models')
 best_model_save_path = os.path.join('saved_models', 'best_model')
 env = FlappyEnv(render_mode="human")
-env = DummyVecEnv([lambda: env])
+env = VecMonitor(DummyVecEnv([lambda: env]))
 
-stop_callback = StopTrainingOnRewardThreshold(reward_threshold=100, verbose=1)
+stop_callback = StopTrainingOnRewardThreshold(reward_threshold=1000, verbose=1)
 eval_callback = EvalCallback(env,
                              callback_on_new_best=stop_callback,
                              eval_freq=10000,
@@ -28,6 +28,7 @@ net_arch = {'pi': [512,256,128],
 model = PPO('MlpPolicy', 
             env=env,
             learning_rate=3e-4,
+            n_steps=2048, # The number of steps to run for each environment per update
             batch_size=256,
             gamma=0.98,  # 0.99 # look forward 1.65s
             gae_lambda=0.95,
@@ -36,12 +37,9 @@ model = PPO('MlpPolicy',
             policy_kwargs={'net_arch':net_arch},
             tensorboard_log=log_path)
 
-# model = PPO.load(best_model_save_path, env=env)
+model = PPO.load(best_model_save_path, env=env)
 
-
-
-
-model.learn(total_timesteps=100,
+model.learn(total_timesteps=100000, # The total number of samples (env steps) to train on
             progress_bar=True,
             callback=eval_callback)
 

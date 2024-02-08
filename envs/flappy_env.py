@@ -38,7 +38,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
     
     def __init__(
         self,
-        max_timesteps = 100,
+        max_timesteps = 3000,
         is_visual     = False,
         randomize     = False,
         debug         = False,
@@ -130,12 +130,8 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         self.reset()
         self._init_env()
 
-        self.timestep_plot = []
         self.reward_plot = []
-        self.fig, self.ax = plt.subplots()
-        self.graph = self.ax.plot(self.timestep_plot, self.reward_plot, color = 'g')[0]
-        self.animation = FuncAnimation(fig=self.fig, func=self._update_plot, blit=True)
-        
+
     @property
     def dt(self) -> float:
         # return self.model.opt.timestep * self.frame_skip # 4e-3
@@ -145,13 +141,9 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         print("Environment created")
         action = self.action_space.sample()
         print("Sample action: {}".format(action))
-        print("Control range: {}".format(self.model.actuator_ctrlrange.flatten()))
+        print("Control range: {}".format(self.model.actuator_ctrlrange))
         print("Time step(dt): {}".format(self.dt))
-    
-    def _update_plot(self):
-        self.graph.set_xdata(self.timestep_plot)
-        self.graph.set_ydata(self.reward_plot)
-
+        
     def _init_action_filter(self):
         self.action_filter = ActionFilterButter(
             lowcut        = None,
@@ -241,12 +233,7 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
 
         terminated = self._terminated()
         truncated = False
-        self.timestep += 1
-        self.timestep_plot.append(self.timestep)
         self.reward_plot.append(reward)
-
-        plt.tight_layout()
-        plt.show()
         
         return obs, reward, terminated, truncated, self.info
     
@@ -357,14 +344,14 @@ class FlappyEnv(MujocoEnv, utils.EzPickle):
         return total_reward, reward_dict
 
     def _terminated(self):
-        if not((self.data.qpos[0:3] <= self.pos_ub).all() 
-                and (self.data.qpos[0:3] >= self.pos_lb).all()):
-            print("Out of position bounds ", self.data.qpos[0:3], self.timestep)
-            return True
-        if not((self.data.qvel[0:3] <= self.vel_ub).all() 
-                and (self.data.qvel[0:3] >= self.vel_lb).all()):
-            print("Out of velocity bounds ", self.data.qvel[0:3], self.timestep)
-            return True
+        # if not((self.data.qpos[0:3] <= self.pos_ub).all() 
+        #         and (self.data.qpos[0:3] >= self.pos_lb).all()):
+        #     print("Out of position bounds ", self.data.qpos[0:3], self.timestep)
+        #     return True
+        # if not((self.data.qvel[0:3] <= self.vel_ub).all() 
+        #         and (self.data.qvel[0:3] >= self.vel_lb).all()):
+        #     print("Out of velocity bounds ", self.data.qvel[0:3], self.timestep)
+        #     return True
         if self.timestep >= self.max_timesteps:
             print("Max step reached: {}".format(self.max_timesteps))
             return True
