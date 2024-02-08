@@ -11,7 +11,7 @@ from envs.quadrotor_env import QuadrotorEnv
 
 log_path = os.path.join('logs')
 save_path = os.path.join('saved_models')
-best_model_save_path = os.path.join('saved_models', 'best_model')
+best_model_save_path = os.path.join('best_model')
 env = QuadrotorEnv(render_mode="human")
 env = VecMonitor(DummyVecEnv([lambda: env]))
 
@@ -49,5 +49,5 @@ model.save(save_path)
 obs_sample = model.env.observation_space.sample()
 print("Pre saved", model.predict(obs_sample, deterministic=True))
 del model # delete trained model to demonstrate loading
-loaded_model = PPO.load(save_path)
+loaded_model = PPO.load('best_models/best_models')
 print("Loaded", loaded_model.predict(obs_sample, deterministic=True))
