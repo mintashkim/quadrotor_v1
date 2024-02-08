@@ -19,11 +19,11 @@ stop_callback = StopTrainingOnRewardThreshold(reward_threshold=1000, verbose=1)
 eval_callback = EvalCallback(env,
                              callback_on_new_best=stop_callback,
                              eval_freq=10000,
-                             best_model_save_path=save_path,
+                             best_model_save_path=best_model_save_path,
                              verbose=1)
 
-net_arch = {'pi': [512,256,128],
-            'vf': [512,256,128]}
+net_arch = {'pi': [512,256,256,128],
+            'vf': [512,256,256,128]}
 
 model = PPO('MlpPolicy', 
             env=env,
@@ -33,11 +33,9 @@ model = PPO('MlpPolicy',
             gamma=0.98,  # 0.99 # look forward 1.65s
             gae_lambda=0.95,
             clip_range=0.2,
-            verbose=1, 
+            verbose=1,
             policy_kwargs={'net_arch':net_arch},
             tensorboard_log=log_path)
-
-model = PPO.load(best_model_save_path, env=env)
 
 model.learn(total_timesteps=100000, # The total number of samples (env steps) to train on
             progress_bar=True,
@@ -45,3 +43,11 @@ model.learn(total_timesteps=100000, # The total number of samples (env steps) to
 
 evaluate_policy(model, env, n_eval_episodes=10, render=True)
 env.close()
+
+model.save(save_path)
+
+obs_sample = model.env.observation_space.sample()
+print("Pre saved", model.predict(obs_sample, deterministic=True))
+del model # delete trained model to demonstrate loading
+loaded_model = PPO.load(save_path)
+print("Loaded", loaded_model.predict(obs_sample, deterministic=True))
