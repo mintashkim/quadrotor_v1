@@ -9,7 +9,7 @@ from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnRewar
 from envs.quadrotor_env import QuadrotorEnv
 
 
-log_path = os.path.join('logs')
+log_path = os.path.join('logs') 
 save_path = os.path.join('saved_models')
 best_model_save_path = os.path.join('best_model')
 env = QuadrotorEnv(render_mode="human")
