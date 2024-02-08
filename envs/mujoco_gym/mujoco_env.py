@@ -1,6 +1,6 @@
 from os import path
 import sys
-sys.path.append('/Users/mintaekim/Desktop/HRL/Flappy/Integrated/Flappy_Integrated/flappy_v2/envs/mujoco_gym')
+sys.path.append('/Users/mintaekim/Desktop/HRL/Flappy/Integrated/Flappy_Integrated/quadrotor_v1/envs/mujoco_gym')
 from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np

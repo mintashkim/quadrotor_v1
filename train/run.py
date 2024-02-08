@@ -1,18 +1,18 @@
 import os
 import sys
-sys.path.append('/Users/mintaekim/Desktop/HRL/Flappy/Integrated/Flappy_Integrated/flappy_v2')
+sys.path.append('/Users/mintaekim/Desktop/HRL/Flappy/Integrated/Flappy_Integrated/quadrotor_v1')
 from envs.ppo.ppo import PPO # Customized
 # from stable_baselines3 import PPO # Naive
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnRewardThreshold
-from envs.flappy_env import FlappyEnv
+from envs.quadrotor_env import QuadrotorEnv
 
 
 log_path = os.path.join('logs')
 save_path = os.path.join('saved_models')
 best_model_save_path = os.path.join('saved_models', 'best_model')
-env = FlappyEnv(render_mode="human")
+env = QuadrotorEnv(render_mode="human")
 env = VecMonitor(DummyVecEnv([lambda: env]))
 
 stop_callback = StopTrainingOnRewardThreshold(reward_threshold=1000, verbose=1)
