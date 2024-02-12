@@ -11,7 +11,7 @@ from envs.quadrotor_env import QuadrotorEnv
 
 log_path = os.path.join('logs') 
 save_path = os.path.join('saved_models')
-best_model_save_path = os.path.join('best_model')
+best_model_save_path = os.path.join('saved_models', 'best_model')
 env = QuadrotorEnv(render_mode="human")
 env = VecMonitor(DummyVecEnv([lambda: env]))
 
@@ -37,7 +37,7 @@ model = PPO('MlpPolicy',
             policy_kwargs={'net_arch':net_arch},
             tensorboard_log=log_path)
 
-model.learn(total_timesteps=100000, # The total number of samples (env steps) to train on
+model.learn(total_timesteps=1e+4, # The total number of samples (env steps) to train on
             progress_bar=True,
             callback=eval_callback)
 
@@ -46,8 +46,20 @@ env.close()
 
 model.save(save_path)
 
+####################################################
+#################### Evaluation ####################
+####################################################
+
 obs_sample = model.env.observation_space.sample()
-print("Pre saved", model.predict(obs_sample, deterministic=True))
+
+print("Pre saved model prediction: ")
+print(model.predict(obs_sample, deterministic=True))
 del model # delete trained model to demonstrate loading
-loaded_model = PPO.load('best_models/best_models')
-print("Loaded", loaded_model.predict(obs_sample, deterministic=True))
+
+loaded_model = PPO.load(save_path+"/best_model")
+print("Loaded model prediction: ")
+print(loaded_model.predict(obs_sample, deterministic=True))
+
+print("Evaluation start")
+evaluate_policy(model, env, n_eval_episodes=5, render=True)
+env.close()

@@ -279,7 +279,7 @@ class QuadrotorEnv(MujocoEnv, utils.EzPickle):
         current_vel = self.data.qvel
         current_ori = quat2euler_raw(self.data.qpos[3:7]) # euler_mes
         
-        pos_err = np.linalg.norm(current_pos - desired_pos) 
+        pos_err = np.linalg.norm(current_pos - desired_pos)
         r_pos = np.exp(-scale_pos * pos_err)
 
         vel_err = np.linalg.norm(current_vel- desired_vel) 
