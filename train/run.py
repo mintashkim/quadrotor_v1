@@ -11,7 +11,6 @@ from envs.quadrotor_env import QuadrotorEnv
 
 log_path = os.path.join('logs') 
 save_path = os.path.join('saved_models')
-best_model_save_path = os.path.join('saved_models', 'best_model')
 env = QuadrotorEnv(render_mode="human")
 env = VecMonitor(DummyVecEnv([lambda: env]))
 
@@ -19,7 +18,7 @@ stop_callback = StopTrainingOnRewardThreshold(reward_threshold=1000, verbose=1)
 eval_callback = EvalCallback(env,
                              callback_on_new_best=stop_callback,
                              eval_freq=10000,
-                             best_model_save_path=best_model_save_path,
+                             best_model_save_path=save_path,
                              verbose=1)
 
 net_arch = {'pi': [512,256,256,128],
@@ -37,14 +36,13 @@ model = PPO('MlpPolicy',
             policy_kwargs={'net_arch':net_arch},
             tensorboard_log=log_path)
 
-model.learn(total_timesteps=1e+4, # The total number of samples (env steps) to train on
+model.learn(total_timesteps=1e+5, # The total number of samples (env steps) to train on
             progress_bar=True,
             callback=eval_callback)
 
-evaluate_policy(model, env, n_eval_episodes=10, render=True)
 env.close()
 
-model.save(save_path)
+model.save(save_path + "/PPO_1")
 
 ####################################################
 #################### Evaluation ####################
@@ -61,5 +59,5 @@ print("Loaded model prediction: ")
 print(loaded_model.predict(obs_sample, deterministic=True))
 
 print("Evaluation start")
-evaluate_policy(model, env, n_eval_episodes=5, render=True)
+evaluate_policy(loaded_model, env, n_eval_episodes=10, render=True)
 env.close()
