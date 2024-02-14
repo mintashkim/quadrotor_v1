@@ -36,7 +36,7 @@ model = PPO('MlpPolicy',
             policy_kwargs={'net_arch':net_arch},
             tensorboard_log=log_path)
 
-model.learn(total_timesteps=1e+5, # The total number of samples (env steps) to train on
+model.learn(total_timesteps=1e+7, # The total number of samples (env steps) to train on
             progress_bar=True,
             callback=eval_callback)
 
