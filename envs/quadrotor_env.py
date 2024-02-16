@@ -45,7 +45,7 @@ class QuadrotorEnv(MujocoEnv, utils.EzPickle):
         lpf_action    = True,
         traj_type     = False,
         # MujocoEnv
-        xml_file: str = "../assets/Quadrotor.xml",
+        xml_file: str = "../assets/quadrotor.xml",
         frame_skip: int = 2,
         default_camera_config: Dict[str, Union[float, int]] = DEFAULT_CAMERA_CONFIG,
         reset_noise_scale: float = 0.01,
