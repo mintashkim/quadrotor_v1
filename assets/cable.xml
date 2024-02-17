@@ -1,5 +1,6 @@
 <mujoco model="Cable">
-  <include file="empty_world.xml"/>
+  <!-- <include file="empty_world.xml"/> -->
+  <include file="scene.xml"/>
 
   <extension>
     <plugin plugin="mujoco.elasticity.cable"/>
@@ -15,7 +16,7 @@
   <size memory="2M"/>
 
   <worldbody>
-    <composite type="cable" curve="s" count="41 1 1" size="1" offset="-.3 0 .6" initial="none">
+    <composite type="cable" curve="s" count="10 1 1" size="1" offset="-.3 0 .6" initial="none">
       <plugin plugin="mujoco.elasticity.cable">
         <!--Units are in Pa (SI)-->
         <config key="twist" value="1e7"/>
