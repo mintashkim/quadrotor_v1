@@ -56,20 +56,20 @@
             <site name="z_axis" type="box" pos=".0 .0 .1" size=".15 .005 .005" quat="-.707 0 .707 0" rgba="0 0 1 0.2"/>
         </body>
 
-        <body name="payload" pos="0 0 -0.5">
-            <joint type="free">
+        <body name="payload" pos="0 0 0.5">
+            <joint type="free"/>
             <geom type="cylinder" size="0.05 0.05" rgba="0 0 1 1" mass="0.1"/>
             <site name="hook_payload" pos="0 0 0.025"/>
         </body>
             
     </worldbody>
 
-    <!-- <tendon>
+    <tendon>
         <spatial limited="true" range="0 0.5" rgba="0 0.1 1 1" width=".005" stiffness="0">
             <site site="hook_core"/>
             <site site="hook_payload"/>
         </spatial>
-    </tendon> -->
+    </tendon>
 
 
 

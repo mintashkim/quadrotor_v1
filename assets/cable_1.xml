@@ -9,18 +9,24 @@
     <compiler autolimits="true"/>
 
     <worldbody>
-        <body name="payload" pos="1 0 1">
+        <body name="payload1" pos="1 0 1">
             <joint type="free"/>
             <geom type="cylinder" size="0.05 0.05" rgba="0 0 1 1" mass="0.5"/>
-            <site name="hook_payload" pos="0 0 0.05"/>
+            <site name="hook_payload1" pos="0 0 0.05"/>
         </body>
 
-        <body name="cable" pos="0 0 1">
+        <body name="payload2" pos="-1 0 1">
             <joint type="free"/>
-            <composite prefix="actuated" type="cable" curve="0 0 s" count="40 1 1" initial="none">
+            <geom type="cylinder" size="0.05 0.05" rgba="0 0 1 1" mass="0.5"/>
+            <site name="hook_payload2" pos="0 0 0.05"/>
+        </body>
+
+        <body name="cable">
+            <joint type="free"/>
+            <composite prefix="actuated" type="cable" curve="s" count="40 1 1" initial="none">
                 <plugin plugin="mujoco.elasticity.cable">
-                    <config key="twist" value="0"/>
-                    <config key="bend" value="0"/>
+                    <config key="twist" value="10"/>
+                    <config key="bend" value="10"/>
                     <config key="vmax" value="0.05"/>
                 </plugin>
                 <geom type="capsule" size=".005" rgba="0.8 0.2 0.1 1"/>
@@ -35,8 +41,8 @@
     </worldbody>
 
     <equality>
-        <connect body1="payload" body2="cable" anchor="0 0 0">
-        <!-- <connect body1="B_last" body2="link7" anchor="0 0 0"> -->
+        <connect body1="payload1" body2="cable" anchor="0 0 0"/>
+        <connect body1="payload2" body2="cable" anchor="0 0 0"/>
     </equality>
 
 </mujoco>
