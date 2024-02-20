@@ -4,6 +4,7 @@ Reinforcement Learning for Robust Locomotion Control of Quadrotors
 
 ## Description
 
+* Update 02/19/24: Quadrotors with Payload
 * Hard Coded Version: MujocoEnv, [Gymnasium](https://github.com/Farama-Foundation/Gymnasium), and [Stable-Baselines3](https://github.com/DLR-RM/stable-baselines3) are used
 * Mujoco built-in fluid dynamics is used
 
@@ -32,10 +33,9 @@ python run.py
 ```
 
 
-## Authors
+## Author
 
-Mintae Kim  
-Jiaze Cai
+Mintae Kim
 
 ## Version History
 
