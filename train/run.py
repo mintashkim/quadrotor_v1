@@ -42,7 +42,7 @@ model.learn(total_timesteps=1e+7, # The total number of samples (env steps) to t
 
 env.close()
 
-model.save(save_path + "/PPO_1")
+model.save(save_path + "/PPO_10")
 
 ####################################################
 #################### Evaluation ####################

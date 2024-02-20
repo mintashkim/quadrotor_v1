@@ -38,14 +38,14 @@ class QuadrotorEnv(MujocoEnv, utils.EzPickle):
     
     def __init__(
         self,
-        max_timesteps = 3000,
+        max_timesteps = 5000,
         is_visual     = False,
         randomize     = False,
         debug         = False,
         lpf_action    = True,
         traj_type     = False,
         # MujocoEnv
-        xml_file: str = "../assets/quadrotor.xml",
+        xml_file: str = "../assets/quadrotor_payload.xml",
         frame_skip: int = 2,
         default_camera_config: Dict[str, Union[float, int]] = DEFAULT_CAMERA_CONFIG,
         reset_noise_scale: float = 0.01,
@@ -84,7 +84,7 @@ class QuadrotorEnv(MujocoEnv, utils.EzPickle):
         self.previous_act       = deque(maxlen=self.history_len)
         
         self.action_space = Box(low=-100, high=100, shape=(self.n_action,))
-        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(13,)) # NOTE: change to the actual number of obs to actor policy
+        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(26,)) # NOTE: change to the actual number of obs to actor policy
         self.observation_space_policy = Box(low=-np.inf, high=np.inf, shape=(454,)) # NOTE: change to the actual number of obs to actor policy
         self.observation_space_value_func = Box(low=-np.inf, high=np.inf, shape=(454,)) # NOTE: change to the actual number of obs to the value function
         
@@ -272,7 +272,7 @@ class QuadrotorEnv(MujocoEnv, utils.EzPickle):
         scale_input     = 1.0
         scale_delta_act = 1.0
 
-        desired_pos = np.array([0.0, 0.0, 1.0]).reshape(3,1) # x y z 
+        desired_pos = np.array([0.0, 0.0, 2.0]).reshape(3,1) # x y z 
         desired_vel = np.array([0.0, 0.0, 0.0]).reshape(3,1) # vx vy vz
         desired_ori = np.array([0.0, 0.0, 0.0]).reshape(3,1) # roll, pitch, yaw
         current_pos = self.data.qpos

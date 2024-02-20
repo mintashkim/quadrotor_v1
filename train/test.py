@@ -13,5 +13,5 @@ save_path = os.path.join('saved_models')
 loaded_model = PPO.load(save_path+"/best_model")
 
 print("Evaluation start")
-evaluate_policy(loaded_model, env, n_eval_episodes=100, render=True)
+evaluate_policy(loaded_model, env, n_eval_episodes=10, render=True)
 env.close()
