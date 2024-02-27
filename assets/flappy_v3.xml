@@ -1,0 +1,174 @@
+<mujoco model="Flappy_v3">
+<!-- This version is for Initial RL. Propellers were added as control input. Mass property,
+    thrust/torque from the motor may not be correct. Use built in aerodynamics.  -->
+  <compiler angle="radian" meshdir="meshes/"/>
+  <!-- <statistic meansize="0.0652069" extent="0.541984" center="0.0122683 -0.0367867 0.0356997"/> -->
+  <!--<option impratio="1" gravity="0 0 -9.81"  integrator="Euler" > -->
+  <option impratio="1" gravity="0 0 -9.81"  integrator="Euler" density="1.225" viscosity="1.789e-5" >
+  <!-- <flag contact="disable"/>-->
+  </option>
+  
+  <asset>
+    <texture builtin="gradient" type="skybox" height="100" width="100" rgb1="1 1 1" rgb2=".6 .8 1"/>
+    <texture name="texgeom" builtin="flat" height="1278" mark="cross" markrgb="1 1 1" random="0.01" rgb1="0.8 0.6 0.4" rgb2="0.8 0.6 0.4" type="cube" width="127"/>
+    <texture name="texplane" builtin="checker" height="100" width="100" rgb1="0 0 0" rgb2="0.8 0.8 0.8" type="2d"/>
+    <material name="MatPlane" reflectance="0.5" shininess="1" specular="1" texrepeat="60 60" texture="texplane"/>
+    <mesh name="Base" file="Base.STL"/>
+    <mesh name="L1" file="L1.STL"/>
+    <mesh name="L2" file="L2.STL"/>
+    <mesh name="L1R" file="L1R.STL"/>
+    <mesh name="L2R" file="L2R.STL"/>
+    <mesh name="L3" file="L3.STL"/>
+    <mesh name="L7" file="L7.STL"/>
+    <mesh name="L6" file="L6.STL"/>
+    <mesh name="L5" file="L5.STL"/>
+    <mesh name="L4" file="L4.STL"/>
+    <mesh name="L3R" file="L3R.STL"/>
+    <mesh name="L7R" file="L7R.STL"/>
+    <mesh name="L6R" file="L6R.STL"/>
+    <mesh name="L5R" file="L5R.STL"/>
+    <mesh name="L4R" file="L4R.STL"/>
+  </asset>
+
+  <default>
+    <equality solref="1e-5 1"/>
+  </default>
+  
+  <worldbody>
+    <light cutoff="100" diffuse="1 1 1" dir="-0 0 -1.3" directional="true" exponent="1" pos="0 0 1.3" specular=".1 .1 .1"/>
+    <geom conaffinity="1" condim="3" material="MatPlane" name="floor" pos="0 0 0" rgba="0.4 0.3 0.3 1" size="5 5 0.2" type="plane"/>
+    <body name='Base' pos='0 0 0.5'>
+      <freejoint/>
+
+      <site name="motor1" type="cylinder" pos="0.009 -.19 .035" size=".01 0.0025" quat="1 0 0 0" rgba=".3 .8 .3 1"/> Front
+      <site name="motor2" type="cylinder" pos="0.009 .135 .035" size=".01 0.0025" quat="1 0 0 0" rgba=".3 .8 .3 1"/> Back
+      <site name="motor3" type="cylinder" pos=".2455 -0.028 .035" size=".01 .0025" quat="1 0 0 0" rgba=".3 .8 .3 1"/> Right
+      <site name="motor4" type="cylinder" pos="-.227 -0.028 .035" size=".01 .0025" quat="1 0 0 0" rgba=".3 .8 .3 1"/> Left
+
+      <site name="motor5" type="cylinder" pos="-.275 -0.028 .031" size=".01 .0025" quat="0.7071068 0.7071068 0 0 " rgba=".3 .8 .3 1"/> Left
+      <site name="motor6" type="cylinder" pos=".292 -0.028 .031" size=".01 .0025" quat="0.7071068 0.7071068 0 0 " rgba=".3 .8 .3 1"/> Right
+
+      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="Base"/>
+      <geom type="mesh" rgba="1 1 1 1" mesh="Base"/>
+      <inertial pos="0 0 0" quat="1 0 0 0" mass="0.057" diaginertia="2.603e-04 1.061e-03 1.129e-03"/>
+<!--      <inertial pos="0 0 0" quat="0 0 0 0" mass="0.01" diaginertia="1.0521e-06 1.4359e-06 4.4495e-07"/>-->
+      <body name="L1" pos="-0.001046 -0.04588 0.019419" quat="0.696041 -0.696044 -0.124599 -0.1246">
+        <inertial pos="1.99134e-08 0.00239727 0.00203608" quat="0.533138 0.464504 -0.464504 0.533138" mass="0.000161525" diaginertia="2.05453e-09 1.83052e-09 5.8028e-10"/>
+        <joint name="J1" pos="0 0 0" axis="0 0 1" damping="1"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="L1"/>
+        <geom type="mesh" rgba="1 1 1 1" mesh="L1"/>
+        <body name="L2" pos="0 0.0075 0.0003" quat="-3.50741e-06 0.954862 -0.297048 1.09112e-06">
+          <inertial pos="0.0166046 0.000296703 0.0005" quat="0.0166331 0.706911 -0.0166331 0.706911" mass="0.000195528" diaginertia="2.88378e-08 2.85892e-08 2.81176e-10"/>
+          <joint name="J2" pos="0 0 0" axis="0 0 1" damping="0.1"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="L2"/>
+          <geom type="mesh" rgba="1 1 1 1" mesh="L2"/>
+          <body name="L4" pos="0.0040958 0.0028679 0.001" quat="0.962398 0 0 0.271643">
+            <inertial pos="0.0195927 0.00283964 0.0005" quat="-0.0252401 0.706656 0.0252401 0.706656" mass="0.000187735" diaginertia="2.89369e-08 2.80109e-08 9.57333e-10"/>
+            <joint name="J3" type='hinge' pos="0 0 0" axis="0 0 1" damping="0.1"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="L4"/>
+            <geom type="mesh" rgba="1 1 1 1" mesh="L4"/>
+            <body name="L5" pos="0.03276 -0.014646 -0.001" quat="0.86311 0 0 -0.505016">
+              <inertial pos="0.0281135 0.00985493 0.0005" quat="0.0127074 0.706993 -0.0127074 0.706993" mass="0.000551493" diaginertia="4.88071e-07 4.68887e-07 1.92764e-08"/>
+              <joint name="J7" type='hinge' pos="-0.01118034 0.01 0.001" axis="0 0 1"  damping="0.1"/>
+              <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="L5"/>
+              <geom type="mesh" rgba="1 1 1 1" mesh="L5"/>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="L1R" pos="0.018954 -0.03888 0.019419" quat="-2.97453e-06 0.586718 -2.15514e-06 -0.809791">
+        <inertial pos="0.00010561 0 0" quat="0.5 0.5 0.5 0.5" mass="0.000441815" diaginertia="2.9266e-08 1.49569e-08 1.46036e-08"/>
+        <joint name="J1R" pos="0 0 0" axis="0 1 0" damping="0.5"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="L1R"/>
+        <geom type="mesh" rgba="1 1 1 1" mesh="L1R"/>
+        <body name="L2R" pos="0.0075 -0.0007 0" quat="-0.318876 -0.31887 0.631128 -0.631123">
+          <inertial pos="0.0166046 0.000296703 0.0005" quat="0.0166331 0.706911 -0.0166331 0.706911" mass="0.000195528" diaginertia="2.88378e-08 2.85892e-08 2.81176e-10"/>
+          <joint name="J2R" pos="0 0 0" axis="0 0 1" damping="0.1"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="L2R"/>
+          <geom type="mesh" rgba="1 1 1 1" mesh="L2R"/>
+          <body name="L4R" pos="0.0040958 0.0028679 0.001" quat="0.962428 0 0 0.271537">
+            <inertial pos="0.0195927 0.00283964 0.0005" quat="-0.0252401 0.706656 0.0252401 0.706656" mass="0.000187735" diaginertia="2.89369e-08 2.80109e-08 9.57333e-10"/>
+            <joint name="J3R" pos="0 0 0" axis="0 0 1" damping="0.1"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="L4R"/>
+            <geom type="mesh" rgba="1 1 1 1" mesh="L4R"/>
+            <body name="L5R" pos="0.032953 -0.014687 -0.001" quat="0.866425 0 0 -0.499308">
+              <inertial pos="0.0281135 0.00985493 0.0005" quat="0.0127074 0.706993 -0.0127074 0.706993" mass="0.000551493" diaginertia="4.88071e-07 4.68887e-07 1.92764e-08"/>
+              <joint name="J7R" pos="-0.01118034 0.01 0.001" axis="0 0 1" damping="0.1"/>
+              <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="L5R"/>
+              <geom type="mesh" rgba="1 1 1 1" mesh="L5R"/>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="L3" pos="0.029627 -0.04658 0.036742" quat="0.702183 0.702185 -0.0832906 0.0832909">
+        <inertial pos="0.0187353 -0.000212053 -0.00188487" quat="0.549572 0.550363 0.444844 0.444055" mass="0.000339676" diaginertia="1.60431e-07 1.2157e-07 4.10467e-08"/>
+        <joint name="J5" pos="0 0 0" axis="0 0 1" damping="0.5"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="L3"/>
+        <geom type="mesh" rgba="1 1 1 1" mesh="L3" fluidshape="ellipsoid"/>
+        <body name="L7" pos="0.081323 -0.018528 -0.001" quat="0.985802 0 0 -0.167911">
+          <inertial pos="0.00566219 0.00137138 -0.00104006" quat="0.53849 0.466014 0.462135 0.52848" mass="0.000426449" diaginertia="3.70217e-07 2.95816e-07 8.98173e-08"/>
+          <joint name="J6" pos="-0.035 0 0.001" axis="0 0 1" damping="0.1"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="L7"/>
+          <geom type="mesh" rgba="1 1 1 1" mesh="L7" fluidshape="ellipsoid"/>
+          <body name="L6" pos="-0.02625 0.039636 0.001" quat="0.929832 0 0 -0.367984">
+            <inertial pos="0.0183924 -0.000169189 0.0005" quat="0.00123631 0.707106 -0.00123631 0.707106" mass="0.00017604" diaginertia="2.69855e-08 2.68812e-08 1.3361e-10"/>
+            <joint name="J10" pos="0.036 0 0" axis="0 0 1" damping="0.1"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="L6"/>
+            <geom type="mesh" rgba="1 1 1 1" mesh="L6"/>
+          </body>
+        </body>
+      </body>
+      <body name="L3R" pos="-0.011719 -0.03718 0.036742" quat="-0.0922989 0.0922934 0.701059 0.701056">
+        <inertial pos="0.0187353 -0.000212053 0.00240482" quat="0.550363 0.549572 0.444055 0.444844" mass="0.000339676" diaginertia="1.60431e-07 1.2157e-07 4.10467e-08"/>
+        <joint name="J5R" pos="0 0 0" axis="0 0 1" damping="0.5"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="L3R"/>
+        <geom type="mesh" rgba="1 1 1 1" mesh="L3R" fluidshape="ellipsoid"/>
+        <body name="L7R" pos="0.080843 -0.019814 -0.001" quat="0.98232 0 0 -0.187209">
+          <inertial pos="0.00566219 0.00137138 0.00138654" quat="0.466014 0.53849 0.52848 0.462135" mass="0.000426449" diaginertia="3.70217e-07 2.95816e-07 8.98173e-08"/>
+          <joint name="J6R" pos="-0.035 0 0.001" axis="0 0 1" damping="0.1"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="L7R"/>
+          <geom type="mesh" rgba="1 1 1 1" mesh="L7R" fluidshape="ellipsoid"/>
+          <body name="L6R" pos="-0.026802 0.039034 0.001" quat="0.933943 0 0 -0.357421">
+            <inertial pos="0.0183924 -0.000169189 0.0005" quat="0.00123631 0.707106 -0.00123631 0.707106" mass="0.00017604" diaginertia="2.69855e-08 2.68812e-08 1.3361e-10"/>
+            <joint name="J10R" pos="0.036 0 0" axis="0 0 1" damping="0.1"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="L6R"/>
+            <geom type="mesh" rgba="1 1 1 1" mesh="L6R"/>
+          </body>
+        </body>
+      </body>
+
+      <site name="x_axis_b" type="box" pos=".1 .0 .0" size=".15 .005 .005" quat="1 0 0 0" rgba="1 0 0 0.2"/>
+      <site name="y_axis_b" type="box" pos=".0 .1 .0" size=".15 .005 .005" quat=".707 0 0 .707" rgba="0 1 0 0.2"/>
+      <site name="z_axis_b" type="box" pos=".0 .0 .1" size=".15 .005 .005" quat="-.707 0 .707 0" rgba="0 0 1 0.2"/>
+    </body>
+
+    <site name="x_axis" type="box" pos=".1 .0 .0" size=".15 .005 .005" quat="1 0 0 0" rgba="1 0 0 0.2"/>
+    <site name="y_axis" type="box" pos=".0 .1 .0" size=".15 .005 .005" quat=".707 0 0 .707" rgba="0 1 0 0.2"/>
+    <site name="z_axis" type="box" pos=".0 .0 .1" size=".15 .005 .005" quat="-.707 0 .707 0" rgba="0 0 1 0.2"/>
+  </worldbody>
+
+  <equality>
+    <connect name = 'J4-eq' body1='L3'  body2='L2' anchor='-0.00670820 0.006 0'/>
+    <connect name = 'J9-eq' body1='L6'  body2='L5' anchor='0 0 0'/> 
+    <connect name = 'J8-eq' body1='Base'  body2='L5' anchor='0.01825164 -0.04558027 0.04915587'/> 
+    <connect name = 'J4R-eq' body1='L3R'  body2='L2R' anchor='-0.00670820 0.006 0'/>
+    <connect name = 'J9R-eq' body1='L6R'  body2='L5R' anchor='0 0 0'/> 
+    <connect name = 'J8R-eq' body1='Base'  body2='L5R' anchor='-0.00034357 -0.03818027 0.04915587'/> 
+    <joint name = 'LeftRight' joint1='J1'  joint2='J1R' polycoef="0 1 0 0 0"/>
+  </equality>
+
+  <actuator>
+    <!-- <motor name="drive" joint="J1" gear="0.01"/>  -->
+    <!-- <motor name="drive" joint="J1" gear="3.14159265"/> -->
+    <!-- <motor name="drive1" joint="J1" gear="14.9225651"/> 4.75/2 Hz  -->
+    <!-- <motor name="drive2" joint="J1R" gear="14.9225651"/> 4.75/2 Hz  -->
+    <motor name="drive" joint="J1" gear="29.8451302"/> 4.75Hz
+    <motor ctrllimited="true" ctrlrange="0 2" gear="0  0. 1. 0. 0. -0.016" site="motor1"/> unit: N
+    <motor ctrllimited="true" ctrlrange="0 2" gear="0  0. 1. 0. 0. -0.016" site="motor2"/>
+    <motor ctrllimited="true" ctrlrange="0 2" gear="0  0. 1. 0. 0. -0.016" site="motor3"/>
+    <motor ctrllimited="true" ctrlrange="0 2" gear="0  0. 1. 0. 0. -0.016" site="motor4"/>
+    <motor ctrllimited="true" ctrlrange="0 0.5" gear="0  0. 1. 0. 0.  0.016" site="motor5"/>
+    <motor ctrllimited="true" ctrlrange="0 0.5" gear="0  0. -1. 0. 0. -0.016" site="motor6"/>
+  </actuator>
+
+</mujoco>
