@@ -30,7 +30,7 @@ from rotation_transformations import *
 from R_body import R_body
 
 
-DEFAULT_CAMERA_CONFIG = {"trackbodyid": 0, "distance": 5.0}
+DEFAULT_CAMERA_CONFIG = {"trackbodyid": 0, "distance": 7.0}
 TRAJECTORY_TYPES = {"linear": 0, "circular": 1, "setpoint": 2}
 
 class QuadrotorEnv(MujocoEnv, utils.EzPickle):
@@ -45,7 +45,7 @@ class QuadrotorEnv(MujocoEnv, utils.EzPickle):
         lpf_action    = True,
         traj_type     = False,
         # MujocoEnv
-        xml_file: str = "../assets/quadrotor_payload.xml",
+        xml_file: str = "../assets/quadrotor.xml",
         frame_skip: int = 2,
         default_camera_config: Dict[str, Union[float, int]] = DEFAULT_CAMERA_CONFIG,
         reset_noise_scale: float = 0.01,
@@ -84,7 +84,7 @@ class QuadrotorEnv(MujocoEnv, utils.EzPickle):
         self.previous_act       = deque(maxlen=self.history_len)
         
         self.action_space = Box(low=-100, high=100, shape=(self.n_action,))
-        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(26,)) # NOTE: change to the actual number of obs to actor policy
+        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(13,)) # NOTE: change to the actual number of obs to actor policy NOTE: 26 for payload
         self.observation_space_policy = Box(low=-np.inf, high=np.inf, shape=(454,)) # NOTE: change to the actual number of obs to actor policy
         self.observation_space_value_func = Box(low=-np.inf, high=np.inf, shape=(454,)) # NOTE: change to the actual number of obs to the value function
         

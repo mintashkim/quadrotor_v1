@@ -32,6 +32,7 @@ model = PPO('MlpPolicy',
             gamma=0.98,  # 0.99 # look forward 1.65s
             gae_lambda=0.95,
             clip_range=0.2,
+            ent_coef=0.001,
             verbose=1,
             policy_kwargs={'net_arch':net_arch},
             tensorboard_log=log_path)
@@ -42,7 +43,7 @@ model.learn(total_timesteps=1e+7, # The total number of samples (env steps) to t
 
 env.close()
 
-model.save(save_path + "/PPO_10")
+model.save(save_path)
 
 ####################################################
 #################### Evaluation ####################
