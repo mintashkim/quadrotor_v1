@@ -46,7 +46,7 @@ class QuadrotorEnv(MujocoEnv, utils.EzPickle):
         traj_type     = False,
         # MujocoEnv
         xml_file: str = "../assets/quadrotor.xml",
-        frame_skip: int = 2,
+        frame_skip: int = 1,
         default_camera_config: Dict[str, Union[float, int]] = DEFAULT_CAMERA_CONFIG,
         reset_noise_scale: float = 0.01,
         **kwargs
@@ -84,7 +84,7 @@ class QuadrotorEnv(MujocoEnv, utils.EzPickle):
         self.previous_act       = deque(maxlen=self.history_len)
         
         self.action_space = Box(low=-100, high=100, shape=(self.n_action,))
-        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(13,)) # NOTE: change to the actual number of obs to actor policy NOTE: 26 for payload
+        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(46,)) # NOTE: change to the actual number of obs to actor policy NOTE: 26 for payload
         self.observation_space_policy = Box(low=-np.inf, high=np.inf, shape=(454,)) # NOTE: change to the actual number of obs to actor policy
         self.observation_space_value_func = Box(low=-np.inf, high=np.inf, shape=(454,)) # NOTE: change to the actual number of obs to the value function
         
@@ -201,36 +201,37 @@ class QuadrotorEnv(MujocoEnv, utils.EzPickle):
             self.sim.set_dynamics()
 
     def _get_obs(self):
-        return np.concatenate([self.data.qpos, self.data.qvel]).ravel()
+        # return np.concatenate([self.data.qpos, self.data.qvel]).ravel()
+        # NOTE: obs = [o_t-4:o_t, a_t-4:a_t, o_t], shape=(97,)=13x4+8x4+13x1
+        obs_curr = np.concatenate([self.data.qpos[0:3], self.data.qvel[0:3]]).flatten()
+        if self.timestep == 0:
+            [self.previous_obs.append(obs_curr) for _ in range(self.history_len)]
+            [self.previous_act.append(np.zeros(self.n_action)) for _ in range(self.history_len)]
+        obs_prev = np.concatenate([np.array(self.previous_obs,dtype=object).flatten(), np.array(self.previous_act,dtype=object).flatten()])
+        obs = np.concatenate([obs_prev, obs_curr])
+        return obs
 
     def _act2actual(self, act):
         return self.action_lower_bounds_actual + (act + 1)/2.0 * (self.action_upper_bounds_actual - self.action_lower_bounds_actual)
 
     def step(self, action, restore=False):
-        assert action.shape[0] == self.n_action and 0 <= action.all() <= 5
-        action = self._act2actual(action)
-        if self.timestep == 0:
-            self.action_filter.init_history(action)
-        # post-process action
-        if self.lpf_action:
-            action_filtered = self.action_filter.filter(action)
-            # u_to_apply = action_in_SI*self._acs_alpha + self.last_acs*(1-self._acs_alpha)
-        else:
-            action_filtered = np.copy(action)
+        # assert action.shape[0] == self.n_action and 0 <= action.all() <= 5
+        # action = self._act2actual(action)
+        if self.timestep == 0: self.action_filter.init_history(action)
+        if self.lpf_action: action_filtered = self.action_filter.filter(action)
+        else: action_filtered = np.copy(action)
 
         self.do_simulation(action_filtered, self.frame_skip)
+        if self.render_mode == "human": self.render()
         self._update_data(step=True)
         self.last_act = action
 
-        # obs_vf, obs_pol = self._get_obs(action=action, step=True)
         obs = self._get_obs()
-        reward, reward_dict = self._get_reward(action)
+        obs_curr = obs[40:] # self.data.sensordata
+        reward, reward_dict = self._get_reward(action, obs_curr)
         self.info["reward_dict"] = reward_dict
-
-        if self.render_mode == "human":
-            self.render()
-
         terminated = self._terminated()
+        reward += int(not terminated)
         truncated = False
         
         return obs, reward, terminated, truncated, self.info
@@ -244,17 +245,17 @@ class QuadrotorEnv(MujocoEnv, utils.EzPickle):
         # for _ in range(self.num_sims_per_env_step):
         self.data.ctrl[:] = ctrl
         mj.mj_step(self.model, self.data, nstep=n_frames)
-        mj.mj_rnePostConstraint(self.model, self.data)
+        # mj.mj_rnePostConstraint(self.model, self.data)
 
     def _update_data(self, step=True):
         # NOTE: modify obs states, ground truth states 
-        self.obs_states = self.sim.get_obseverable()
-        self.gt_states = self.sim.states
+        # self.obs_states = self.sim.get_obseverable()
+        # self.gt_states = self.sim.states
         if step:
             self.timestep += 1
             self.time_in_sec += self.secs_per_env_step
 
-    def _get_reward(self, action):
+    def _get_reward(self, action, obs_curr):
         names = ['position_error', 'velocity_error', 'orientation_error', 'input', 'delta_acs']
 
         w_position    = 1.0
@@ -272,14 +273,14 @@ class QuadrotorEnv(MujocoEnv, utils.EzPickle):
         scale_input     = 1.0
         scale_delta_act = 1.0
 
-        desired_pos = np.array([0.0, 0.0, 2.0]).reshape(3,1) # x y z 
-        desired_vel = np.array([0.0, 0.0, 0.0]).reshape(3,1) # vx vy vz
-        desired_ori = np.array([0.0, 0.0, 0.0]).reshape(3,1) # roll, pitch, yaw
-        current_pos = self.data.qpos
-        current_vel = self.data.qvel
+        desired_pos = np.array([0.0, 0.0, 2.0]) # x y z 
+        desired_vel = np.array([0.0, 0.0, 0.0]) # vx vy vz
+        desired_ori = np.array([0.0, 0.0, 0.0]) # roll, pitch, yaw
+        current_pos = self.data.qpos[0:3]
+        current_vel = self.data.qvel[0:3]
         current_ori = quat2euler_raw(self.data.qpos[3:7]) # euler_mes
         
-        pos_err = np.linalg.norm(current_pos - desired_pos)
+        pos_err = np.linalg.norm(current_pos - desired_pos) + np.abs(current_pos[2]-desired_pos[2])
         r_pos = np.exp(-scale_pos * pos_err)
 
         vel_err = np.linalg.norm(current_vel- desired_vel) 

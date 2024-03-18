@@ -10,7 +10,8 @@
     </default>
 
     <worldbody>
-        <body name="core" pos="0 0 2" quat=".866 0 .5 0">
+        <body name="core" pos="0 0 2">
+        <!-- <body name="core" pos="0 0 2" quat=".866 0 .5 0"> --> Enable to tilt
             <geom name="core_geom" type="box" pos="0 0 0" quat="1 0 0 0" size=".04 .04 .02" rgba=".8 .2 0 1" mass="1.2"/>
             <joint name="root" type="free" damping="0" armature="0" pos="0 0 0" limited="false"/>
             <geom name="arm_front0" type="box" pos=".08 0 0" size=".04 .005 .005" quat="1 0 0 0" rgba=".8 .8 .8 1" mass=".02"/>
